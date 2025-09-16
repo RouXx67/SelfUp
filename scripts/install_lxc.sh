@@ -439,8 +439,27 @@ install_selfup_in_container() {
     pct exec "$LXC_ID" -- rm -rf /usr/lib/node_modules /usr/local/lib/node_modules || true
     
     # Télécharger et installer Node.js 18 directement
+    log_info "Téléchargement de Node.js 18.20.4..."
     pct exec "$LXC_ID" -- curl -fsSL https://nodejs.org/dist/v18.20.4/node-v18.20.4-linux-x64.tar.xz -o /tmp/node.tar.xz
+    
+    # Vérifier que le téléchargement a réussi
+    if ! pct exec "$LXC_ID" -- test -f /tmp/node.tar.xz; then
+        log_error "Échec du téléchargement de Node.js"
+        exit 1
+    fi
+    
+    # Extraire l'archive
+    log_info "Extraction de Node.js..."
     pct exec "$LXC_ID" -- tar -xf /tmp/node.tar.xz -C /tmp/
+    
+    # Vérifier que l'extraction a réussi
+    if ! pct exec "$LXC_ID" -- test -d /tmp/node-v18.20.4-linux-x64; then
+        log_error "Échec de l'extraction de Node.js"
+        exit 1
+    fi
+    
+    # Copier les fichiers
+    log_info "Installation des binaires Node.js..."
     pct exec "$LXC_ID" -- cp -r /tmp/node-v18.20.4-linux-x64/* /usr/local/
     
     # Créer les liens symboliques

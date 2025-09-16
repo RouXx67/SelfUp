@@ -101,8 +101,27 @@ install_nodejs() {
     rm -rf /usr/lib/node_modules /usr/local/lib/node_modules || true
     
     # Télécharger et installer Node.js 18 directement
+    log_info "Downloading Node.js 18.20.4..."
     curl -fsSL https://nodejs.org/dist/v18.20.4/node-v18.20.4-linux-x64.tar.xz -o /tmp/node.tar.xz
+    
+    # Vérifier que le téléchargement a réussi
+    if [[ ! -f /tmp/node.tar.xz ]]; then
+        log_error "Failed to download Node.js"
+        exit 1
+    fi
+    
+    # Extraire l'archive
+    log_info "Extracting Node.js..."
     tar -xf /tmp/node.tar.xz -C /tmp/
+    
+    # Vérifier que l'extraction a réussi
+    if [[ ! -d /tmp/node-v18.20.4-linux-x64 ]]; then
+        log_error "Failed to extract Node.js"
+        exit 1
+    fi
+    
+    # Copier les fichiers
+    log_info "Installing Node.js binaries..."
     cp -r /tmp/node-v18.20.4-linux-x64/* /usr/local/
     
     # Créer les liens symboliques
