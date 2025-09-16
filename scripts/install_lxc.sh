@@ -433,16 +433,36 @@ install_selfup_in_container() {
     pct exec "$LXC_ID" -- apt-get install -y curl ca-certificates gnupg git sqlite3
     
     # Supprimer les anciennes installations Node.js
-    pct exec "$LXC_ID" -- apt-get remove --purge -y nodejs npm || true
-    pct exec "$LXC_ID" -- apt-get autoremove -y || true
+    log_info "Suppression complète de Node.js existant..."
+    pct exec "$LXC_ID" -- apt-get remove --purge -y nodejs npm nodejs-doc libnode72 || true
+    pct exec "$LXC_ID" -- apt-get autoremove --purge -y || true
+    pct exec "$LXC_ID" -- apt-get autoclean || true
+    
+    # Supprimer manuellement les fichiers restants
+    pct exec "$LXC_ID" -- rm -rf /usr/bin/node /usr/bin/nodejs /usr/bin/npm /usr/bin/npx || true
+    pct exec "$LXC_ID" -- rm -rf /usr/lib/node_modules || true
+    pct exec "$LXC_ID" -- rm -rf /usr/share/nodejs || true
+    
+    # Nettoyer les anciens dépôts NodeSource s'ils existent
+    pct exec "$LXC_ID" -- rm -f /etc/apt/sources.list.d/nodesource.list || true
+    pct exec "$LXC_ID" -- rm -f /etc/apt/keyrings/nodesource.gpg || true
+    pct exec "$LXC_ID" -- rm -f /usr/share/keyrings/nodesource.gpg || true
     
     # Ajouter le dépôt NodeSource pour Node.js 18
     log_info "Configuration du dépôt NodeSource..."
-    pct exec "$LXC_ID" -- curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+    pct exec "$LXC_ID" -- bash -c "curl -fsSL https://deb.nodesource.com/setup_18.x | bash -"
     
-    # Installer Node.js 18
+    # Mettre à jour la liste des paquets
+    pct exec "$LXC_ID" -- apt-get update -qq
+    
+    # Installer Node.js 18 avec gestion des conflits
     log_info "Installation de Node.js 18..."
-    pct exec "$LXC_ID" -- apt-get install -y nodejs
+    pct exec "$LXC_ID" -- apt-get install -y nodejs --fix-broken || {
+        log_warning "Problème d'installation, tentative de correction..."
+        pct exec "$LXC_ID" -- dpkg --configure -a
+        pct exec "$LXC_ID" -- apt-get install -f -y
+        pct exec "$LXC_ID" -- apt-get install -y nodejs
+    }
     
     # Vérification de l'installation
     log_info "Vérification de l'installation Node.js..."
