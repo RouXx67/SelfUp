@@ -423,90 +423,32 @@ install_selfup_in_container() {
         software-properties-common
     
     # Installation de Node.js
-    log_info "Installation de Node.js 18..."
+    log_info "Installation de Node.js..."
     
-    # Installation directe des binaires (snap ne fonctionne pas dans les conteneurs LXC)
-    log_info "Installation directe des binaires Node.js 18..."
+    # Installation simple via les dépôts Ubuntu
+    log_info "Installation de Node.js via les dépôts Ubuntu..."
     
-    # Installer les outils nécessaires
+    # Installer les outils nécessaires et Node.js
     pct exec "$LXC_ID" -- apt-get update -qq
-    pct exec "$LXC_ID" -- apt-get install -y wget xz-utils git sqlite3
+    pct exec "$LXC_ID" -- apt-get install -y nodejs npm git sqlite3
     
-    # Télécharger avec wget
-    log_info "Téléchargement de Node.js 18.20.4..."
-    pct exec "$LXC_ID" -- wget -q https://nodejs.org/dist/v18.20.4/node-v18.20.4-linux-x64.tar.xz -O /tmp/node.tar.xz
-    
-    # Vérifier le téléchargement
-    if pct exec "$LXC_ID" -- test -f /tmp/node.tar.xz; then
-        log_info "Téléchargement réussi, extraction..."
+    # Vérification de l'installation
+    if pct exec "$LXC_ID" -- command -v node &>/dev/null; then
+        NODE_VERSION=$(pct exec "$LXC_ID" -- node --version)
+        NPM_VERSION=$(pct exec "$LXC_ID" -- npm --version 2>/dev/null || echo "N/A")
         
-        # Créer le répertoire de destination
-        pct exec "$LXC_ID" -- mkdir -p /opt/nodejs
+        log_success "Node.js $NODE_VERSION et npm $NPM_VERSION installés avec succès"
         
-        # Extraire directement dans le répertoire final
-        pct exec "$LXC_ID" -- tar -xf /tmp/node.tar.xz -C /opt/nodejs --strip-components=1
-        
-        # Vérifier l'extraction
-        if pct exec "$LXC_ID" -- test -f /opt/nodejs/bin/node; then
-            log_info "Extraction réussie, création des liens..."
-            
-            # Créer les liens symboliques
-            pct exec "$LXC_ID" -- ln -sf /opt/nodejs/bin/node /usr/bin/node
-            pct exec "$LXC_ID" -- ln -sf /opt/nodejs/bin/npm /usr/bin/npm
-            pct exec "$LXC_ID" -- ln -sf /opt/nodejs/bin/npx /usr/bin/npx
-            
-            # Ajouter au PATH
-            pct exec "$LXC_ID" -- bash -c 'echo "export PATH=/opt/nodejs/bin:\$PATH" >> /etc/environment'
-            
-            log_success "Node.js installé manuellement"
-        else
-            log_error "Échec de l'extraction des binaires Node.js"
-            exit 1
-        fi
-    else
-        log_error "Échec du téléchargement de Node.js"
-        exit 1
-    fi
-    
-    # Nettoyer
-    pct exec "$LXC_ID" -- rm -f /tmp/node.tar.xz
-    
-    # Vérification finale
-    sleep 2
-    if pct exec "$LXC_ID" -- /opt/nodejs/bin/node --version &>/dev/null; then
-        NODE_VERSION=$(pct exec "$LXC_ID" -- /opt/nodejs/bin/node --version)
-        NPM_VERSION=$(pct exec "$LXC_ID" -- /opt/nodejs/bin/npm --version 2>/dev/null || echo "N/A")
-        
-        # Vérifier que c'est bien Node.js 18+
+        # Vérifier la version majeure (accepter 12+)
         MAJOR_VERSION=$(echo "$NODE_VERSION" | cut -d'v' -f2 | cut -d'.' -f1)
-        if [[ "$MAJOR_VERSION" -ge "18" ]]; then
-            log_success "Node.js $NODE_VERSION et npm $NPM_VERSION installés avec succès"
+        if [[ "$MAJOR_VERSION" -ge "12" ]]; then
+            log_info "Version Node.js $MAJOR_VERSION compatible avec SelfUp"
         else
-            log_error "Version incorrecte de Node.js installée: $NODE_VERSION (attendu: 18+)"
-            exit 1
+            log_warning "Version Node.js $MAJOR_VERSION potentiellement trop ancienne, mais on continue..."
         fi
     else
-        # Essayer avec les liens symboliques
-        if pct exec "$LXC_ID" -- command -v node &>/dev/null; then
-            NODE_VERSION=$(pct exec "$LXC_ID" -- node --version)
-            NPM_VERSION=$(pct exec "$LXC_ID" -- npm --version 2>/dev/null || echo "N/A")
-            log_success "Node.js $NODE_VERSION et npm $NPM_VERSION installés avec succès"
-        else
-            log_error "Node.js installé mais non accessible, vérification des liens..."
-            # Recréer les liens symboliques
-            pct exec "$LXC_ID" -- ln -sf /opt/nodejs/bin/node /usr/bin/node
-            pct exec "$LXC_ID" -- ln -sf /opt/nodejs/bin/npm /usr/bin/npm
-            pct exec "$LXC_ID" -- ln -sf /opt/nodejs/bin/npx /usr/bin/npx
-            
-            # Vérifier à nouveau
-            if pct exec "$LXC_ID" -- command -v node &>/dev/null; then
-                NODE_VERSION=$(pct exec "$LXC_ID" -- node --version)
-                log_success "Node.js $NODE_VERSION installé et liens corrigés"
-            else
-                log_error "Impossible d'accéder à Node.js même après correction des liens"
-                exit 1
-            fi
-        fi
+        log_error "Échec de l'installation de Node.js"
+        exit 1
     fi
     
     # Installation de SelfUp
