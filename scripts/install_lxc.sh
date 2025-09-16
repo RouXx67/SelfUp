@@ -472,9 +472,10 @@ install_selfup_in_container() {
     pct exec "$LXC_ID" -- rm -f /tmp/node.tar.xz
     
     # Vérification finale
-    if pct exec "$LXC_ID" -- command -v node &>/dev/null; then
-        NODE_VERSION=$(pct exec "$LXC_ID" -- node -v)
-        NPM_VERSION=$(pct exec "$LXC_ID" -- npm -v 2>/dev/null || echo "N/A")
+    sleep 2
+    if pct exec "$LXC_ID" -- /opt/nodejs/bin/node --version &>/dev/null; then
+        NODE_VERSION=$(pct exec "$LXC_ID" -- /opt/nodejs/bin/node --version)
+        NPM_VERSION=$(pct exec "$LXC_ID" -- /opt/nodejs/bin/npm --version 2>/dev/null || echo "N/A")
         
         # Vérifier que c'est bien Node.js 18+
         MAJOR_VERSION=$(echo "$NODE_VERSION" | cut -d'v' -f2 | cut -d'.' -f1)
@@ -485,8 +486,27 @@ install_selfup_in_container() {
             exit 1
         fi
     else
-        log_error "Échec complet de l'installation de Node.js"
-        exit 1
+        # Essayer avec les liens symboliques
+        if pct exec "$LXC_ID" -- command -v node &>/dev/null; then
+            NODE_VERSION=$(pct exec "$LXC_ID" -- node --version)
+            NPM_VERSION=$(pct exec "$LXC_ID" -- npm --version 2>/dev/null || echo "N/A")
+            log_success "Node.js $NODE_VERSION et npm $NPM_VERSION installés avec succès"
+        else
+            log_error "Node.js installé mais non accessible, vérification des liens..."
+            # Recréer les liens symboliques
+            pct exec "$LXC_ID" -- ln -sf /opt/nodejs/bin/node /usr/bin/node
+            pct exec "$LXC_ID" -- ln -sf /opt/nodejs/bin/npm /usr/bin/npm
+            pct exec "$LXC_ID" -- ln -sf /opt/nodejs/bin/npx /usr/bin/npx
+            
+            # Vérifier à nouveau
+            if pct exec "$LXC_ID" -- command -v node &>/dev/null; then
+                NODE_VERSION=$(pct exec "$LXC_ID" -- node --version)
+                log_success "Node.js $NODE_VERSION installé et liens corrigés"
+            else
+                log_error "Impossible d'accéder à Node.js même après correction des liens"
+                exit 1
+            fi
+        fi
     fi
     
     # Installation de SelfUp
