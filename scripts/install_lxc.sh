@@ -27,7 +27,7 @@ LXC_VLAN=""
 LXC_BRIDGE="vmbr0"
 LXC_TEMPLATE="ubuntu-22.04-standard_22.04-1_amd64.tar.zst"
 LXC_STORAGE="local-lvm"
-SELFUP_REPO="https://github.com/Johan-Liebert1/SelfUp.git"
+SELFUP_REPO="https://github.com/RouXx67/SelfUp.git"
 
 # Fonctions d'affichage
 log_info() {

@@ -4,6 +4,10 @@
 
 ![SelfUp Dashboard](docs/dashboard-preview.png)
 
+## 🔗 Repository GitHub
+
+Ce projet est hébergé sur GitHub : [https://github.com/RouXx67/SelfUp](https://github.com/RouXx67/SelfUp)
+
 ## ✨ Fonctionnalités
 
 - 📊 **Dashboard intuitif** - Vue d'ensemble de toutes vos applications
@@ -12,6 +16,7 @@
 - 🎯 **Providers multiples** - Support GitHub, Docker Hub, APIs génériques
 - 🌙 **Mode sombre** - Interface adaptée jour/nuit
 - ⚡ **Installation simple** - Script automatisé pour Debian/Ubuntu
+- 🐳 **Installation LXC** - Script d'installation automatique pour conteneurs LXC/Proxmox
 - 🔧 **Configuration flexible** - Variables d'environnement et interface web
 - 📝 **Historique complet** - Suivi de toutes les mises à jour détectées
 
@@ -39,7 +44,7 @@ SelfUp/
 
 ```bash
 # Cloner le repository
-git clone https://github.com/votre-username/SelfUp.git
+git clone https://github.com/RouXx67/SelfUp.git
 cd SelfUp
 
 # Rendre le script exécutable
@@ -57,6 +62,30 @@ Le script d'installation va :
 - ✅ Configurer le service systemd
 - ✅ Démarrer l'application
 
+### Installation LXC/Proxmox
+
+Pour une installation automatique dans un conteneur LXC :
+
+```bash
+# Cloner le repository
+git clone https://github.com/RouXx67/SelfUp.git
+cd SelfUp
+
+# Rendre le script exécutable
+chmod +x scripts/install_lxc.sh
+
+# Lancer l'installation LXC (nécessite root sur l'hôte Proxmox)
+sudo ./scripts/install_lxc.sh
+```
+
+Le script d'installation LXC propose un **formulaire interactif** pour configurer :
+- 🆔 **ID et nom** du conteneur
+- 💾 **Ressources** (CPU, RAM, disque)
+- 🌐 **Configuration réseau** (DHCP ou IP statique, VLAN)
+- 🔧 **Installation automatique** de SelfUp dans le conteneur
+
+📖 **Documentation complète** : [README_LXC.md](README_LXC.md)
+
 ### Installation manuelle
 
 <details>
@@ -66,9 +95,9 @@ Le script d'installation va :
 # 1. Installer Node.js 18+
 curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
 sudo apt-get install -y nodejs
-
+```bash
 # 2. Cloner et configurer
-git clone https://github.com/votre-username/SelfUp.git
+git clone https://github.com/RouXx67/SelfUp.git
 cd SelfUp
 
 # 3. Installer les dépendances backend
@@ -200,7 +229,7 @@ sudo /opt/selfup/scripts/update.sh
 
 ```bash
 # Cloner le projet
-git clone https://github.com/votre-username/SelfUp.git
+git clone https://github.com/RouXx67/SelfUp.git
 cd SelfUp
 
 # Installer les dépendances

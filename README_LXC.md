@@ -2,6 +2,10 @@
 
 Ce script permet de créer automatiquement un conteneur LXC et d'y installer SelfUp avec une interface de configuration interactive.
 
+## 🔗 Repository GitHub
+
+Ce projet est hébergé sur GitHub : [https://github.com/RouXx67/SelfUp](https://github.com/RouXx67/SelfUp)
+
 ## Prérequis
 
 - Proxmox VE ou système avec LXC installé
