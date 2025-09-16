@@ -425,156 +425,115 @@ install_selfup_in_container() {
     # Installation de Node.js
     log_info "Installation de Node.js 18..."
     
-    # Méthode alternative : utilisation de cloud-init pour l'installation
-    log_info "Configuration de cloud-init pour l'installation automatique..."
+    # Approche simplifiée : installation via snap ou binaires pré-compilés
+    log_info "Installation de Node.js via snap (méthode alternative)..."
     
-    # Créer un script cloud-init pour l'installation complète
-    cat > /tmp/selfup-cloudinit.yaml << 'EOF'
-#cloud-config
-package_update: true
-package_upgrade: true
-
-packages:
-  - curl
-  - git
-  - sqlite3
-  - ca-certificates
-  - gnupg
-  - software-properties-common
-  - xz-utils
-
-runcmd:
-  # Installation de Node.js 18
-  - curl -fsSL https://nodejs.org/dist/v18.20.4/node-v18.20.4-linux-x64.tar.xz -o /tmp/node.tar.xz
-  - tar -xf /tmp/node.tar.xz -C /tmp/
-  - cp -r /tmp/node-v18.20.4-linux-x64/* /usr/local/
-  - ln -sf /usr/local/bin/node /usr/bin/node
-  - ln -sf /usr/local/bin/npm /usr/bin/npm
-  - ln -sf /usr/local/bin/npx /usr/bin/npx
-  - rm -rf /tmp/node*
-  
-  # Clonage et installation de SelfUp
-  - git clone https://github.com/RouXx67/SelfUp.git /tmp/selfup
-  - useradd --system --shell /bin/bash --home-dir /opt/selfup --create-home selfup
-  - mkdir -p /opt/selfup/app
-  - cp -r /tmp/selfup/* /opt/selfup/app/
-  - chown -R selfup:selfup /opt/selfup
-  
-  # Installation des dépendances
-  - cd /opt/selfup/app && npm install --production
-  - cd /opt/selfup/app/frontend && npm install && npm run build
-  
-  # Configuration de l'environnement
-  - |
-    cat > /opt/selfup/.env << 'ENVEOF'
-    PORT=3001
-    NODE_ENV=production
-    DB_PATH=/opt/selfup/data/selfup.db
-    CHECK_INTERVAL_HOURS=6
-    DEFAULT_TIMEOUT=10000
-    FRONTEND_URL=http://localhost:3001
-    ENVEOF
-  - chown selfup:selfup /opt/selfup/.env
-  - chmod 600 /opt/selfup/.env
-  
-  # Création du répertoire de données
-  - mkdir -p /opt/selfup/data
-  - chown selfup:selfup /opt/selfup/data
-  - chmod 755 /opt/selfup/data
-  
-  # Création du service systemd
-  - |
-    cat > /etc/systemd/system/selfup.service << 'SERVICEEOF'
-    [Unit]
-    Description=SelfUp - Self-hosted Services Update Monitor
-    After=network.target
-    Wants=network.target
-
-    [Service]
-    Type=simple
-    User=selfup
-    Group=selfup
-    WorkingDirectory=/opt/selfup/app
-    Environment=NODE_ENV=production
-    EnvironmentFile=/opt/selfup/.env
-    ExecStart=/usr/bin/node backend/server.js
-    Restart=always
-    RestartSec=10
-    StandardOutput=journal
-    StandardError=journal
-    SyslogIdentifier=selfup
-
-    NoNewPrivileges=true
-    PrivateTmp=true
-    ProtectSystem=strict
-    ProtectHome=true
-    ReadWritePaths=/opt/selfup
-
-    [Install]
-    WantedBy=multi-user.target
-    SERVICEEOF
-  
-  # Activation et démarrage du service
-  - systemctl daemon-reload
-  - systemctl enable selfup
-  - systemctl start selfup
-  
-  # Nettoyage
-  - rm -rf /tmp/selfup
-
-final_message: "SelfUp installation completed successfully!"
-EOF
-
-    # Copier le fichier cloud-init dans le conteneur
-    pct push "$LXC_ID" /tmp/selfup-cloudinit.yaml /tmp/selfup-cloudinit.yaml
-    
-    # Exécuter cloud-init dans le conteneur
-    log_info "Exécution de cloud-init pour l'installation automatique..."
-    pct exec "$LXC_ID" -- cloud-init clean
-    pct exec "$LXC_ID" -- cloud-init init --local
-    pct exec "$LXC_ID" -- cloud-init init
-    pct exec "$LXC_ID" -- cloud-init modules --mode=config
-    pct exec "$LXC_ID" -- cloud-init modules --mode=final
-    
-    # Alternative si cloud-init n'est pas disponible : exécution directe du script
-    if ! pct exec "$LXC_ID" -- command -v cloud-init &>/dev/null; then
-        log_warning "Cloud-init non disponible, exécution directe du script..."
+    # Méthode 1: Essayer avec snap d'abord
+    if pct exec "$LXC_ID" -- command -v snap &>/dev/null || pct exec "$LXC_ID" -- apt-get install -y snapd; then
+        log_info "Installation de Node.js via snap..."
+        pct exec "$LXC_ID" -- snap install node --classic --channel=18/stable
         
-        # Installer cloud-init d'abord
+        # Créer les liens symboliques pour la compatibilité
+        pct exec "$LXC_ID" -- ln -sf /snap/bin/node /usr/bin/node
+        pct exec "$LXC_ID" -- ln -sf /snap/bin/npm /usr/bin/npm
+        pct exec "$LXC_ID" -- ln -sf /snap/bin/npx /usr/bin/npx
+        
+        # Vérifier l'installation
+        if pct exec "$LXC_ID" -- command -v node &>/dev/null; then
+            NODE_VERSION=$(pct exec "$LXC_ID" -- node -v)
+            log_success "Node.js $NODE_VERSION installé via snap"
+        else
+            log_warning "Échec de l'installation via snap, tentative avec binaires..."
+        fi
+    fi
+    
+    # Méthode 2: Si snap échoue, utiliser les binaires avec une approche différente
+    if ! pct exec "$LXC_ID" -- command -v node &>/dev/null; then
+        log_info "Installation manuelle des binaires Node.js..."
+        
+        # Installer les outils nécessaires
         pct exec "$LXC_ID" -- apt-get update -qq
-        pct exec "$LXC_ID" -- apt-get install -y cloud-init
+        pct exec "$LXC_ID" -- apt-get install -y wget xz-utils
         
-        # Ou exécuter les commandes directement
-        pct exec "$LXC_ID" -- bash -c "
-            # Installation des paquets
-            apt-get update -qq
-            apt-get install -y curl git sqlite3 ca-certificates gnupg software-properties-common xz-utils
-            
-            # Installation de Node.js
-            curl -fsSL https://nodejs.org/dist/v18.20.4/node-v18.20.4-linux-x64.tar.xz -o /tmp/node.tar.xz
-            tar -xf /tmp/node.tar.xz -C /tmp/
-            cp -r /tmp/node-v18.20.4-linux-x64/* /usr/local/
-            ln -sf /usr/local/bin/node /usr/bin/node
-            ln -sf /usr/local/bin/npm /usr/bin/npm
-            ln -sf /usr/local/bin/npx /usr/bin/npx
-            rm -rf /tmp/node*
-            
-            # Clonage de SelfUp
-            git clone https://github.com/RouXx67/SelfUp.git /tmp/selfup
-            useradd --system --shell /bin/bash --home-dir /opt/selfup --create-home selfup
-            mkdir -p /opt/selfup/app
-            cp -r /tmp/selfup/* /opt/selfup/app/
-            chown -R selfup:selfup /opt/selfup
-            
-            # Installation des dépendances
-            cd /opt/selfup/app && sudo -u selfup npm install --production
-            cd /opt/selfup/app/frontend && sudo -u selfup npm install && sudo -u selfup npm run build
-        "
+        # Télécharger avec wget au lieu de curl
+        pct exec "$LXC_ID" -- wget -q https://nodejs.org/dist/v18.20.4/node-v18.20.4-linux-x64.tar.xz -O /tmp/node.tar.xz
         
-        # Configuration de l'environnement et du service
-        pct exec "$LXC_ID" -- bash -c "
-            # Configuration .env
-            cat > /opt/selfup/.env << 'ENVEOF'
+        # Vérifier le téléchargement
+        if pct exec "$LXC_ID" -- test -f /tmp/node.tar.xz; then
+            log_info "Téléchargement réussi, extraction..."
+            
+            # Créer le répertoire de destination
+            pct exec "$LXC_ID" -- mkdir -p /opt/nodejs
+            
+            # Extraire directement dans le répertoire final
+            pct exec "$LXC_ID" -- tar -xf /tmp/node.tar.xz -C /opt/nodejs --strip-components=1
+            
+            # Vérifier l'extraction
+            if pct exec "$LXC_ID" -- test -f /opt/nodejs/bin/node; then
+                log_info "Extraction réussie, création des liens..."
+                
+                # Créer les liens symboliques
+                pct exec "$LXC_ID" -- ln -sf /opt/nodejs/bin/node /usr/bin/node
+                pct exec "$LXC_ID" -- ln -sf /opt/nodejs/bin/npm /usr/bin/npm
+                pct exec "$LXC_ID" -- ln -sf /opt/nodejs/bin/npx /usr/bin/npx
+                
+                # Ajouter au PATH
+                pct exec "$LXC_ID" -- bash -c 'echo "export PATH=/opt/nodejs/bin:\$PATH" >> /etc/environment'
+                
+                log_success "Node.js installé manuellement"
+            else
+                log_error "Échec de l'extraction des binaires Node.js"
+                exit 1
+            fi
+        else
+            log_error "Échec du téléchargement de Node.js"
+            exit 1
+        fi
+        
+        # Nettoyer
+        pct exec "$LXC_ID" -- rm -f /tmp/node.tar.xz
+    fi
+    
+    # Vérification finale
+    if pct exec "$LXC_ID" -- command -v node &>/dev/null; then
+        NODE_VERSION=$(pct exec "$LXC_ID" -- node -v)
+        NPM_VERSION=$(pct exec "$LXC_ID" -- npm -v 2>/dev/null || echo "N/A")
+        
+        # Vérifier que c'est bien Node.js 18+
+        MAJOR_VERSION=$(echo "$NODE_VERSION" | cut -d'v' -f2 | cut -d'.' -f1)
+        if [[ "$MAJOR_VERSION" -ge "18" ]]; then
+            log_success "Node.js $NODE_VERSION et npm $NPM_VERSION installés avec succès"
+        else
+            log_error "Version incorrecte de Node.js installée: $NODE_VERSION (attendu: 18+)"
+            exit 1
+        fi
+    else
+        log_error "Échec complet de l'installation de Node.js"
+        exit 1
+    fi
+    
+    # Installation de SelfUp
+    log_info "Installation de SelfUp..."
+    
+    # Cloner le repository
+    pct exec "$LXC_ID" -- git clone https://github.com/RouXx67/SelfUp.git /tmp/selfup
+    
+    # Créer l'utilisateur et les répertoires
+    pct exec "$LXC_ID" -- useradd --system --shell /bin/bash --home-dir /opt/selfup --create-home selfup
+    pct exec "$LXC_ID" -- mkdir -p /opt/selfup/app
+    pct exec "$LXC_ID" -- cp -r /tmp/selfup/* /opt/selfup/app/
+    pct exec "$LXC_ID" -- chown -R selfup:selfup /opt/selfup
+    
+    # Installation des dépendances
+    log_info "Installation des dépendances backend..."
+    pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup npm install --production"
+    
+    log_info "Installation et build du frontend..."
+    pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app/frontend && sudo -u selfup npm install && sudo -u selfup npm run build"
+    
+    # Configuration de l'environnement
+    pct exec "$LXC_ID" -- bash -c "
+        cat > /opt/selfup/.env << 'ENVEOF'
 PORT=3001
 NODE_ENV=production
 DB_PATH=/opt/selfup/data/selfup.db
@@ -582,16 +541,18 @@ CHECK_INTERVAL_HOURS=6
 DEFAULT_TIMEOUT=10000
 FRONTEND_URL=http://localhost:3001
 ENVEOF
-            chown selfup:selfup /opt/selfup/.env
-            chmod 600 /opt/selfup/.env
-            
-            # Répertoire de données
-            mkdir -p /opt/selfup/data
-            chown selfup:selfup /opt/selfup/data
-            chmod 755 /opt/selfup/data
-            
-            # Service systemd
-            cat > /etc/systemd/system/selfup.service << 'SERVICEEOF'
+        chown selfup:selfup /opt/selfup/.env
+        chmod 600 /opt/selfup/.env
+    "
+    
+    # Création du répertoire de données
+    pct exec "$LXC_ID" -- mkdir -p /opt/selfup/data
+    pct exec "$LXC_ID" -- chown selfup:selfup /opt/selfup/data
+    pct exec "$LXC_ID" -- chmod 755 /opt/selfup/data
+    
+    # Création du service systemd
+    pct exec "$LXC_ID" -- bash -c "
+        cat > /etc/systemd/system/selfup.service << 'SERVICEEOF'
 [Unit]
 Description=SelfUp - Self-hosted Services Update Monitor
 After=network.target
@@ -620,30 +581,25 @@ ReadWritePaths=/opt/selfup
 [Install]
 WantedBy=multi-user.target
 SERVICEEOF
-            
-            # Activation du service
-            systemctl daemon-reload
-            systemctl enable selfup
-            systemctl start selfup
-            
-            # Nettoyage
-            rm -rf /tmp/selfup
-        "
-    fi
+    "
+    
+    # Activation et démarrage du service
+    pct exec "$LXC_ID" -- systemctl daemon-reload
+    pct exec "$LXC_ID" -- systemctl enable selfup
+    pct exec "$LXC_ID" -- systemctl start selfup
+    
+    # Nettoyage
+    pct exec "$LXC_ID" -- rm -rf /tmp/selfup
     
     # Vérification finale
     sleep 5
     if pct exec "$LXC_ID" -- systemctl is-active --quiet selfup; then
-        NODE_VERSION=$(pct exec "$LXC_ID" -- node -v 2>/dev/null || echo "N/A")
-        log_success "SelfUp installé et démarré avec succès (Node.js $NODE_VERSION)"
+        log_success "SelfUp installé et démarré avec succès"
     else
-        log_error "Échec de l'installation ou du démarrage de SelfUp"
+        log_error "Échec du démarrage de SelfUp"
         pct exec "$LXC_ID" -- journalctl -u selfup -n 20 --no-pager
         exit 1
     fi
-    
-    # Nettoyage du fichier temporaire
-    rm -f /tmp/selfup-cloudinit.yaml
 }
 
 # Affichage des informations finales
