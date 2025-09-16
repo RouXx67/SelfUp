@@ -433,9 +433,12 @@ install_selfup_in_container() {
     pct exec "$LXC_ID" -- apt-get install -y nodejs npm git sqlite3
     
     # Vérification de l'installation
-    if pct exec "$LXC_ID" -- command -v node &>/dev/null; then
-        NODE_VERSION=$(pct exec "$LXC_ID" -- node --version)
-        NPM_VERSION=$(pct exec "$LXC_ID" -- npm --version 2>/dev/null || echo "N/A")
+    log_info "Vérification de l'installation Node.js..."
+    
+    # Test direct de l'exécutable
+    if pct exec "$LXC_ID" -- /usr/bin/node --version &>/dev/null; then
+        NODE_VERSION=$(pct exec "$LXC_ID" -- /usr/bin/node --version)
+        NPM_VERSION=$(pct exec "$LXC_ID" -- /usr/bin/npm --version 2>/dev/null || echo "N/A")
         
         log_success "Node.js $NODE_VERSION et npm $NPM_VERSION installés avec succès"
         
@@ -446,9 +449,33 @@ install_selfup_in_container() {
         else
             log_warning "Version Node.js $MAJOR_VERSION potentiellement trop ancienne, mais on continue..."
         fi
+    elif pct exec "$LXC_ID" -- which node &>/dev/null; then
+        # Fallback avec which
+        NODE_PATH=$(pct exec "$LXC_ID" -- which node)
+        NODE_VERSION=$(pct exec "$LXC_ID" -- "$NODE_PATH" --version)
+        NPM_VERSION=$(pct exec "$LXC_ID" -- npm --version 2>/dev/null || echo "N/A")
+        
+        log_success "Node.js $NODE_VERSION et npm $NPM_VERSION installés avec succès (trouvé dans $NODE_PATH)"
     else
-        log_error "Échec de l'installation de Node.js"
-        exit 1
+        # Dernier test : vérifier si les paquets sont installés
+        if pct exec "$LXC_ID" -- dpkg -l nodejs &>/dev/null; then
+            log_warning "Node.js installé mais non accessible via command/which, tentative de correction..."
+            
+            # Essayer de créer un lien symbolique si nécessaire
+            pct exec "$LXC_ID" -- ln -sf /usr/bin/nodejs /usr/bin/node 2>/dev/null || true
+            
+            # Tester à nouveau
+            if pct exec "$LXC_ID" -- /usr/bin/node --version &>/dev/null; then
+                NODE_VERSION=$(pct exec "$LXC_ID" -- /usr/bin/node --version)
+                log_success "Node.js $NODE_VERSION installé et corrigé"
+            else
+                log_error "Node.js installé mais inaccessible"
+                exit 1
+            fi
+        else
+            log_error "Échec de l'installation de Node.js"
+            exit 1
+        fi
     fi
     
     # Installation de SelfUp
