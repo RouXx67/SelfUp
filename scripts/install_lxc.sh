@@ -595,9 +595,63 @@ SERVICEEOF
     if pct exec "$LXC_ID" -- systemctl is-active --quiet selfup; then
         log_success "SelfUp installé et démarré avec succès"
     else
-        log_error "Échec du démarrage de SelfUp"
+        log_error "Échec du démarrage de SelfUp, vérification des logs..."
         pct exec "$LXC_ID" -- journalctl -u selfup -n 20 --no-pager
-        exit 1
+        
+        # Tentative de diagnostic et correction
+        log_info "Diagnostic des problèmes potentiels..."
+        
+        # Vérifier les permissions
+        pct exec "$LXC_ID" -- chown -R selfup:selfup /opt/selfup
+        pct exec "$LXC_ID" -- chmod +x /opt/selfup/app/backend/server.js
+        
+        # Vérifier que le fichier .env existe
+        if ! pct exec "$LXC_ID" -- test -f /opt/selfup/.env; then
+            log_warning "Fichier .env manquant, création..."
+            pct exec "$LXC_ID" -- bash -c "
+                cat > /opt/selfup/.env << 'ENVEOF'
+PORT=3001
+NODE_ENV=production
+DB_PATH=/opt/selfup/data/selfup.db
+CHECK_INTERVAL_HOURS=6
+DEFAULT_TIMEOUT=10000
+FRONTEND_URL=http://localhost:3001
+ENVEOF
+                chown selfup:selfup /opt/selfup/.env
+                chmod 600 /opt/selfup/.env
+            "
+        fi
+        
+        # Vérifier les dépendances
+        log_info "Vérification des dépendances..."
+        pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup npm list --depth=0"
+        
+        # Redémarrer le service
+        log_info "Redémarrage du service..."
+        pct exec "$LXC_ID" -- systemctl restart selfup
+        
+        # Attendre et vérifier à nouveau
+        sleep 10
+        if pct exec "$LXC_ID" -- systemctl is-active --quiet selfup; then
+            log_success "SelfUp démarré avec succès après correction"
+        else
+            log_error "Échec persistant, logs détaillés:"
+            pct exec "$LXC_ID" -- journalctl -u selfup -n 50 --no-pager
+            
+            # Test manuel
+            log_info "Test manuel de démarrage..."
+            pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup node backend/server.js" &
+            sleep 5
+            
+            if pct exec "$LXC_ID" -- pgrep -f "node backend/server.js" &>/dev/null; then
+                log_warning "L'application démarre manuellement mais pas via systemd"
+                log_info "Vérifiez la configuration du service systemd"
+            else
+                log_error "L'application ne démarre pas du tout"
+            fi
+            
+            exit 1
+        fi
     fi
 }
 
