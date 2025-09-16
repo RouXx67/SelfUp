@@ -423,10 +423,10 @@ install_selfup_in_container() {
         software-properties-common
     
     # Installation de Node.js
-    log_info "Installation de Node.js 18..."
+    log_info "Installation de Node.js 20..."
     
-    # Installation via NodeSource (nécessaire pour Node.js 18+)
-    log_info "Installation de Node.js 18 via NodeSource..."
+    # Installation via NodeSource (Node.js 20 pour éviter les problèmes undici)
+    log_info "Installation de Node.js 20 via NodeSource..."
     
     # Installer les outils nécessaires
     pct exec "$LXC_ID" -- apt-get update -qq
@@ -448,15 +448,15 @@ install_selfup_in_container() {
     pct exec "$LXC_ID" -- rm -f /etc/apt/keyrings/nodesource.gpg || true
     pct exec "$LXC_ID" -- rm -f /usr/share/keyrings/nodesource.gpg || true
     
-    # Ajouter le dépôt NodeSource pour Node.js 18
+    # Ajouter le dépôt NodeSource pour Node.js 20
     log_info "Configuration du dépôt NodeSource..."
-    pct exec "$LXC_ID" -- bash -c "curl -fsSL https://deb.nodesource.com/setup_18.x | bash -"
+    pct exec "$LXC_ID" -- bash -c "curl -fsSL https://deb.nodesource.com/setup_20.x | bash -"
     
     # Mettre à jour la liste des paquets
     pct exec "$LXC_ID" -- apt-get update -qq
     
-    # Installer Node.js 18 avec gestion des conflits
-    log_info "Installation de Node.js 18..."
+    # Installer Node.js 20 avec gestion des conflits
+    log_info "Installation de Node.js 20..."
     pct exec "$LXC_ID" -- apt-get install -y nodejs --fix-broken || {
         log_warning "Problème d'installation, tentative de correction..."
         pct exec "$LXC_ID" -- dpkg --configure -a
@@ -473,10 +473,10 @@ install_selfup_in_container() {
         
         log_success "Node.js $NODE_VERSION et npm $NPM_VERSION installés avec succès"
         
-        # Vérifier que c'est bien Node.js 18+
+        # Vérifier que c'est bien Node.js 20+
         MAJOR_VERSION=$(echo "$NODE_VERSION" | cut -d'v' -f2 | cut -d'.' -f1)
-        if [[ "$MAJOR_VERSION" -ge "18" ]]; then
-            log_info "Version Node.js $MAJOR_VERSION compatible avec SelfUp"
+        if [[ "$MAJOR_VERSION" -ge "20" ]]; then
+            log_info "Version Node.js $MAJOR_VERSION compatible avec toutes les dépendances"
         else
             log_warning "Version Node.js $MAJOR_VERSION potentiellement insuffisante pour certaines dépendances"
         fi
