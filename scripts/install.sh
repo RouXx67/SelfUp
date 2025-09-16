@@ -93,17 +93,36 @@ install_nodejs() {
         if [[ "$CURRENT_VERSION" -ge "$NODE_VERSION" ]]; then
             log_success "Node.js $CURRENT_VERSION is already installed"
             return
+        else
+            log_warning "Node.js $CURRENT_VERSION detected, upgrading to version $NODE_VERSION..."
+            # Remove conflicting packages
+            apt-get remove -y nodejs nodejs-doc libnode72 || true
+            apt-get autoremove -y || true
         fi
     fi
     
+    # Clean any existing NodeSource repository
+    rm -f /etc/apt/sources.list.d/nodesource.list
+    
     # Install Node.js from NodeSource repository
     curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash -
-    apt-get install -y nodejs
+    
+    # Force install to resolve conflicts
+    apt-get install -y --fix-broken nodejs || {
+        log_warning "Conflict detected, attempting to resolve..."
+        apt-get remove -y libnode72 nodejs-doc || true
+        apt-get install -y nodejs
+    }
     
     # Verify installation
-    NODE_INSTALLED_VERSION=$(node -v)
-    NPM_INSTALLED_VERSION=$(npm -v)
-    log_success "Node.js $NODE_INSTALLED_VERSION and npm $NPM_INSTALLED_VERSION installed"
+    if command -v node &> /dev/null; then
+        NODE_INSTALLED_VERSION=$(node -v)
+        NPM_INSTALLED_VERSION=$(npm -v)
+        log_success "Node.js $NODE_INSTALLED_VERSION and npm $NPM_INSTALLED_VERSION installed"
+    else
+        log_error "Failed to install Node.js"
+        exit 1
+    fi
 }
 
 create_user() {

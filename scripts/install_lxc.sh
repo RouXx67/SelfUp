@@ -390,8 +390,42 @@ install_selfup_in_container() {
     
     # Installation de Node.js
     log_info "Installation de Node.js..."
+    
+    # Vérifier si Node.js est déjà installé dans le conteneur
+    if pct exec "$LXC_ID" -- command -v node &>/dev/null; then
+        CURRENT_VERSION=$(pct exec "$LXC_ID" -- node -v | cut -d'v' -f2 | cut -d'.' -f1)
+        if [[ "$CURRENT_VERSION" -ge "18" ]]; then
+            log_success "Node.js $CURRENT_VERSION déjà installé dans le conteneur"
+        else
+            log_warning "Node.js $CURRENT_VERSION détecté, mise à jour vers la version 18..."
+            # Supprimer les paquets en conflit
+            pct exec "$LXC_ID" -- apt-get remove -y nodejs nodejs-doc libnode72 || true
+            pct exec "$LXC_ID" -- apt-get autoremove -y || true
+        fi
+    fi
+    
+    # Nettoyer les anciens dépôts NodeSource
+    pct exec "$LXC_ID" -- rm -f /etc/apt/sources.list.d/nodesource.list
+    
+    # Installer Node.js depuis le dépôt NodeSource
     pct exec "$LXC_ID" -- curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
-    pct exec "$LXC_ID" -- apt-get install -y nodejs
+    
+    # Installation avec gestion des conflits
+    pct exec "$LXC_ID" -- apt-get install -y --fix-broken nodejs || {
+        log_warning "Conflit détecté, tentative de résolution..."
+        pct exec "$LXC_ID" -- apt-get remove -y libnode72 nodejs-doc || true
+        pct exec "$LXC_ID" -- apt-get install -y nodejs
+    }
+    
+    # Vérifier l'installation
+    if pct exec "$LXC_ID" -- command -v node &>/dev/null; then
+        NODE_VERSION=$(pct exec "$LXC_ID" -- node -v)
+        NPM_VERSION=$(pct exec "$LXC_ID" -- npm -v)
+        log_success "Node.js $NODE_VERSION et npm $NPM_VERSION installés dans le conteneur"
+    else
+        log_error "Échec de l'installation de Node.js dans le conteneur"
+        exit 1
+    fi
     
     # Clonage du repository SelfUp
     log_info "Téléchargement de SelfUp..."
