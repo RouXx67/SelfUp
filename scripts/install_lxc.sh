@@ -525,7 +525,7 @@ install_selfup_in_container() {
     
     # Installation des dépendances
     log_info "Installation des dépendances backend..."
-    pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup npm install --production"
+    pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup npm install"
     
     log_info "Installation et build du frontend..."
     pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app/frontend && sudo -u selfup npm install && sudo -u selfup npm run build"
@@ -622,9 +622,13 @@ ENVEOF
             "
         fi
         
-        # Vérifier les dépendances
-        log_info "Vérification des dépendances..."
-        pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup npm list --depth=0"
+        # Vérifier les dépendances et les réinstaller si nécessaire
+         log_info "Réinstallation complète des dépendances..."
+         pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup rm -rf node_modules package-lock.json"
+         pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup npm install"
+         
+         # Vérifier à nouveau
+         pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup npm list --depth=0"
         
         # Redémarrer le service
         log_info "Redémarrage du service..."
