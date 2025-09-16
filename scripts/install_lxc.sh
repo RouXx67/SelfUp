@@ -423,59 +423,46 @@ install_selfup_in_container() {
         software-properties-common
     
     # Installation de Node.js
-    log_info "Installation de Node.js..."
+    log_info "Installation de Node.js 18..."
     
-    # Installation simple via les dépôts Ubuntu
-    log_info "Installation de Node.js via les dépôts Ubuntu..."
+    # Installation via NodeSource (nécessaire pour Node.js 18+)
+    log_info "Installation de Node.js 18 via NodeSource..."
     
-    # Installer les outils nécessaires et Node.js
+    # Installer les outils nécessaires
     pct exec "$LXC_ID" -- apt-get update -qq
-    pct exec "$LXC_ID" -- apt-get install -y nodejs npm git sqlite3
+    pct exec "$LXC_ID" -- apt-get install -y curl ca-certificates gnupg git sqlite3
+    
+    # Supprimer les anciennes installations Node.js
+    pct exec "$LXC_ID" -- apt-get remove --purge -y nodejs npm || true
+    pct exec "$LXC_ID" -- apt-get autoremove -y || true
+    
+    # Ajouter le dépôt NodeSource pour Node.js 18
+    log_info "Configuration du dépôt NodeSource..."
+    pct exec "$LXC_ID" -- curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+    
+    # Installer Node.js 18
+    log_info "Installation de Node.js 18..."
+    pct exec "$LXC_ID" -- apt-get install -y nodejs
     
     # Vérification de l'installation
     log_info "Vérification de l'installation Node.js..."
     
-    # Test direct de l'exécutable
-    if pct exec "$LXC_ID" -- /usr/bin/node --version &>/dev/null; then
-        NODE_VERSION=$(pct exec "$LXC_ID" -- /usr/bin/node --version)
-        NPM_VERSION=$(pct exec "$LXC_ID" -- /usr/bin/npm --version 2>/dev/null || echo "N/A")
+    if pct exec "$LXC_ID" -- node --version &>/dev/null; then
+        NODE_VERSION=$(pct exec "$LXC_ID" -- node --version)
+        NPM_VERSION=$(pct exec "$LXC_ID" -- npm --version 2>/dev/null || echo "N/A")
         
         log_success "Node.js $NODE_VERSION et npm $NPM_VERSION installés avec succès"
         
-        # Vérifier la version majeure (accepter 12+)
+        # Vérifier que c'est bien Node.js 18+
         MAJOR_VERSION=$(echo "$NODE_VERSION" | cut -d'v' -f2 | cut -d'.' -f1)
-        if [[ "$MAJOR_VERSION" -ge "12" ]]; then
+        if [[ "$MAJOR_VERSION" -ge "18" ]]; then
             log_info "Version Node.js $MAJOR_VERSION compatible avec SelfUp"
         else
-            log_warning "Version Node.js $MAJOR_VERSION potentiellement trop ancienne, mais on continue..."
+            log_warning "Version Node.js $MAJOR_VERSION potentiellement insuffisante pour certaines dépendances"
         fi
-    elif pct exec "$LXC_ID" -- which node &>/dev/null; then
-        # Fallback avec which
-        NODE_PATH=$(pct exec "$LXC_ID" -- which node)
-        NODE_VERSION=$(pct exec "$LXC_ID" -- "$NODE_PATH" --version)
-        NPM_VERSION=$(pct exec "$LXC_ID" -- npm --version 2>/dev/null || echo "N/A")
-        
-        log_success "Node.js $NODE_VERSION et npm $NPM_VERSION installés avec succès (trouvé dans $NODE_PATH)"
     else
-        # Dernier test : vérifier si les paquets sont installés
-        if pct exec "$LXC_ID" -- dpkg -l nodejs &>/dev/null; then
-            log_warning "Node.js installé mais non accessible via command/which, tentative de correction..."
-            
-            # Essayer de créer un lien symbolique si nécessaire
-            pct exec "$LXC_ID" -- ln -sf /usr/bin/nodejs /usr/bin/node 2>/dev/null || true
-            
-            # Tester à nouveau
-            if pct exec "$LXC_ID" -- /usr/bin/node --version &>/dev/null; then
-                NODE_VERSION=$(pct exec "$LXC_ID" -- /usr/bin/node --version)
-                log_success "Node.js $NODE_VERSION installé et corrigé"
-            else
-                log_error "Node.js installé mais inaccessible"
-                exit 1
-            fi
-        else
-            log_error "Échec de l'installation de Node.js"
-            exit 1
-        fi
+        log_error "Échec de l'installation de Node.js"
+        exit 1
     fi
     
     # Installation de SelfUp
