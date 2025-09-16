@@ -665,7 +665,33 @@ ENVEOF
 # Affichage des informations finales
 show_completion_info() {
     echo
-    log_success "Installation terminée avec succès!"
+    log_header "Installation terminée avec succès!"
+    
+    # Installer le système de mise à jour sur l'hôte
+    log_info "Installation du système de mise à jour automatique..."
+    
+    # Télécharger les scripts de mise à jour
+    if curl -fsSL https://raw.githubusercontent.com/RouXx67/SelfUp/main/scripts/update_lxc.sh -o /tmp/update_lxc.sh; then
+        mv /tmp/update_lxc.sh ./update_lxc.sh
+        chmod +x ./update_lxc.sh
+        log_success "Script update_lxc.sh téléchargé"
+    else
+        log_warning "Impossible de télécharger update_lxc.sh"
+    fi
+    
+    if curl -fsSL https://raw.githubusercontent.com/RouXx67/SelfUp/main/scripts/update_monitor.sh -o /tmp/update_monitor.sh; then
+        mv /tmp/update_monitor.sh ./update_monitor.sh
+        chmod +x ./update_monitor.sh
+        
+        # Installer le service de surveillance
+        if ./update_monitor.sh install-service; then
+            log_success "Service de surveillance des mises à jour installé"
+        else
+            log_warning "Échec de l'installation du service de surveillance"
+        fi
+    else
+        log_warning "Impossible de télécharger update_monitor.sh"
+    fi
     echo
     log_header "Informations du conteneur:"
     echo -e "${BOLD}ID:${NC} $LXC_ID"
@@ -684,6 +710,11 @@ show_completion_info() {
     echo
     log_header "Accès à SelfUp:"
     echo -e "URL: ${BLUE}http://$container_ip:3001${NC}"
+    echo
+    log_header "Système de mise à jour:"
+    echo -e "${BOLD}Bouton 'Mettre à jour'${NC} disponible dans les Paramètres de l'interface"
+    echo -e "${BOLD}API:${NC} curl -X POST http://$container_ip:3001/api/system/update"
+    echo -e "${BOLD}Service de surveillance:${NC} systemctl status selfup-update-monitor"
     echo
     log_header "Commandes utiles:"
     echo -e "Entrer dans le conteneur: ${BLUE}pct enter $LXC_ID${NC}"
