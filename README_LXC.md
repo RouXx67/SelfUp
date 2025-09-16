@@ -52,6 +52,9 @@ Le script vous demandera de configurer les paramètres suivants :
 - **VLAN** : ID VLAN optionnel (1-4094)
 - **Bridge** : Interface réseau (défaut: vmbr0)
 
+### Configuration de Sécurité
+- **Mot de passe root** : Mot de passe pour l'utilisateur root du conteneur (minimum 8 caractères)
+
 ### Stockage
 - **Storage** : Pool de stockage Proxmox (défaut: local-lvm)
 
