@@ -482,12 +482,38 @@ install_selfup_in_container() {
     log_info "Installation de SelfUp..."
     
     # Cloner le repository
+    log_info "Clonage du repository SelfUp..."
     pct exec "$LXC_ID" -- git clone https://github.com/RouXx67/SelfUp.git /tmp/selfup
+    
+    # Vérifier que le clonage a réussi
+    if ! pct exec "$LXC_ID" -- test -d /tmp/selfup/.git; then
+        log_error "Échec du clonage du repository SelfUp"
+        exit 1
+    fi
+    
+    # Vérifier le contenu du repository
+    if ! pct exec "$LXC_ID" -- test -f /tmp/selfup/package.json; then
+        log_error "Repository SelfUp cloné mais fichiers manquants"
+        pct exec "$LXC_ID" -- ls -la /tmp/selfup/
+        exit 1
+    fi
+    
+    log_success "Repository SelfUp cloné avec succès"
     
     # Créer l'utilisateur et les répertoires
     pct exec "$LXC_ID" -- useradd --system --shell /bin/bash --home-dir /opt/selfup --create-home selfup
     pct exec "$LXC_ID" -- mkdir -p /opt/selfup/app
-    pct exec "$LXC_ID" -- cp -r /tmp/selfup/* /opt/selfup/app/
+    
+    # Copier les fichiers avec une méthode plus robuste
+    log_info "Copie des fichiers SelfUp..."
+    pct exec "$LXC_ID" -- bash -c "cd /tmp/selfup && cp -r . /opt/selfup/app/"
+    
+    # Vérifier que la copie a réussi
+    if ! pct exec "$LXC_ID" -- test -f /opt/selfup/app/package.json; then
+        log_error "Échec de la copie des fichiers SelfUp"
+        exit 1
+    fi
+    
     pct exec "$LXC_ID" -- chown -R selfup:selfup /opt/selfup
     
     # Installation des dépendances
