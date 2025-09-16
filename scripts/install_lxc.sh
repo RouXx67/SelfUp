@@ -425,74 +425,51 @@ install_selfup_in_container() {
     # Installation de Node.js
     log_info "Installation de Node.js 18..."
     
-    # Approche simplifiée : installation via snap ou binaires pré-compilés
-    log_info "Installation de Node.js via snap (méthode alternative)..."
+    # Installation directe des binaires (snap ne fonctionne pas dans les conteneurs LXC)
+    log_info "Installation directe des binaires Node.js 18..."
     
-    # Méthode 1: Essayer avec snap d'abord
-    if pct exec "$LXC_ID" -- command -v snap &>/dev/null || pct exec "$LXC_ID" -- apt-get install -y snapd; then
-        log_info "Installation de Node.js via snap..."
-        pct exec "$LXC_ID" -- snap install node --classic --channel=18/stable
-        
-        # Créer les liens symboliques pour la compatibilité
-        pct exec "$LXC_ID" -- ln -sf /snap/bin/node /usr/bin/node
-        pct exec "$LXC_ID" -- ln -sf /snap/bin/npm /usr/bin/npm
-        pct exec "$LXC_ID" -- ln -sf /snap/bin/npx /usr/bin/npx
-        
-        # Vérifier l'installation
-        if pct exec "$LXC_ID" -- command -v node &>/dev/null; then
-            NODE_VERSION=$(pct exec "$LXC_ID" -- node -v)
-            log_success "Node.js $NODE_VERSION installé via snap"
-        else
-            log_warning "Échec de l'installation via snap, tentative avec binaires..."
-        fi
-    fi
+    # Installer les outils nécessaires
+    pct exec "$LXC_ID" -- apt-get update -qq
+    pct exec "$LXC_ID" -- apt-get install -y wget xz-utils git sqlite3
     
-    # Méthode 2: Si snap échoue, utiliser les binaires avec une approche différente
-    if ! pct exec "$LXC_ID" -- command -v node &>/dev/null; then
-        log_info "Installation manuelle des binaires Node.js..."
+    # Télécharger avec wget
+    log_info "Téléchargement de Node.js 18.20.4..."
+    pct exec "$LXC_ID" -- wget -q https://nodejs.org/dist/v18.20.4/node-v18.20.4-linux-x64.tar.xz -O /tmp/node.tar.xz
+    
+    # Vérifier le téléchargement
+    if pct exec "$LXC_ID" -- test -f /tmp/node.tar.xz; then
+        log_info "Téléchargement réussi, extraction..."
         
-        # Installer les outils nécessaires
-        pct exec "$LXC_ID" -- apt-get update -qq
-        pct exec "$LXC_ID" -- apt-get install -y wget xz-utils
+        # Créer le répertoire de destination
+        pct exec "$LXC_ID" -- mkdir -p /opt/nodejs
         
-        # Télécharger avec wget au lieu de curl
-        pct exec "$LXC_ID" -- wget -q https://nodejs.org/dist/v18.20.4/node-v18.20.4-linux-x64.tar.xz -O /tmp/node.tar.xz
+        # Extraire directement dans le répertoire final
+        pct exec "$LXC_ID" -- tar -xf /tmp/node.tar.xz -C /opt/nodejs --strip-components=1
         
-        # Vérifier le téléchargement
-        if pct exec "$LXC_ID" -- test -f /tmp/node.tar.xz; then
-            log_info "Téléchargement réussi, extraction..."
+        # Vérifier l'extraction
+        if pct exec "$LXC_ID" -- test -f /opt/nodejs/bin/node; then
+            log_info "Extraction réussie, création des liens..."
             
-            # Créer le répertoire de destination
-            pct exec "$LXC_ID" -- mkdir -p /opt/nodejs
+            # Créer les liens symboliques
+            pct exec "$LXC_ID" -- ln -sf /opt/nodejs/bin/node /usr/bin/node
+            pct exec "$LXC_ID" -- ln -sf /opt/nodejs/bin/npm /usr/bin/npm
+            pct exec "$LXC_ID" -- ln -sf /opt/nodejs/bin/npx /usr/bin/npx
             
-            # Extraire directement dans le répertoire final
-            pct exec "$LXC_ID" -- tar -xf /tmp/node.tar.xz -C /opt/nodejs --strip-components=1
+            # Ajouter au PATH
+            pct exec "$LXC_ID" -- bash -c 'echo "export PATH=/opt/nodejs/bin:\$PATH" >> /etc/environment'
             
-            # Vérifier l'extraction
-            if pct exec "$LXC_ID" -- test -f /opt/nodejs/bin/node; then
-                log_info "Extraction réussie, création des liens..."
-                
-                # Créer les liens symboliques
-                pct exec "$LXC_ID" -- ln -sf /opt/nodejs/bin/node /usr/bin/node
-                pct exec "$LXC_ID" -- ln -sf /opt/nodejs/bin/npm /usr/bin/npm
-                pct exec "$LXC_ID" -- ln -sf /opt/nodejs/bin/npx /usr/bin/npx
-                
-                # Ajouter au PATH
-                pct exec "$LXC_ID" -- bash -c 'echo "export PATH=/opt/nodejs/bin:\$PATH" >> /etc/environment'
-                
-                log_success "Node.js installé manuellement"
-            else
-                log_error "Échec de l'extraction des binaires Node.js"
-                exit 1
-            fi
+            log_success "Node.js installé manuellement"
         else
-            log_error "Échec du téléchargement de Node.js"
+            log_error "Échec de l'extraction des binaires Node.js"
             exit 1
         fi
-        
-        # Nettoyer
-        pct exec "$LXC_ID" -- rm -f /tmp/node.tar.xz
+    else
+        log_error "Échec du téléchargement de Node.js"
+        exit 1
     fi
+    
+    # Nettoyer
+    pct exec "$LXC_ID" -- rm -f /tmp/node.tar.xz
     
     # Vérification finale
     if pct exec "$LXC_ID" -- command -v node &>/dev/null; then
