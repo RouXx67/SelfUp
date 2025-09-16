@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { FiSave, FiTestTube, FiCheckCircle, FiXCircle, FiRefreshCw } from 'react-icons/fi'
+import { FiSave, FiCheckCircle, FiXCircle, FiRefreshCw, FiActivity } from 'react-icons/fi'
 import { useTheme } from '../contexts/ThemeContext'
 import { healthApi } from '../services/api'
 import toast from 'react-hot-toast'
@@ -145,7 +145,7 @@ export default function Settings() {
           <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
             <div className="flex">
               <div className="flex-shrink-0">
-                <FiTestTube className="h-5 w-5 text-yellow-400" />
+                <FiActivity className="h-5 w-5 text-yellow-400" />
               </div>
               <div className="ml-3">
                 <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
@@ -178,7 +178,7 @@ export default function Settings() {
               disabled={loading}
               className="btn btn-sm btn-primary"
             >
-              <FiTestTube className="w-4 h-4 mr-2" />
+              <FiActivity className="w-4 h-4 mr-2" />
               {loading ? 'Test...' : 'Tester'}
             </button>
           </div>
