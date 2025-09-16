@@ -389,36 +389,59 @@ install_selfup_in_container() {
         software-properties-common
     
     # Installation de Node.js
-    log_info "Installation de Node.js..."
+    log_info "Installation de Node.js 18..."
+    
+    # Arrêter tous les processus Node.js en cours
+    pct exec "$LXC_ID" -- pkill -f node || true
     
     # Supprimer complètement toute installation existante de Node.js
-    log_info "Nettoyage des installations Node.js existantes..."
-    pct exec "$LXC_ID" -- apt-get remove -y nodejs nodejs-doc libnode72 npm || true
-    pct exec "$LXC_ID" -- apt-get autoremove -y || true
+    log_info "Suppression complète de Node.js existant..."
+    pct exec "$LXC_ID" -- apt-get remove --purge -y nodejs nodejs-doc libnode72 npm node-* || true
+    pct exec "$LXC_ID" -- apt-get autoremove --purge -y || true
     pct exec "$LXC_ID" -- apt-get autoclean || true
     
-    # Nettoyer les anciens dépôts NodeSource
-    pct exec "$LXC_ID" -- rm -f /etc/apt/sources.list.d/nodesource.list
-    pct exec "$LXC_ID" -- rm -f /etc/apt/keyrings/nodesource.gpg
+    # Supprimer manuellement les fichiers restants
+    pct exec "$LXC_ID" -- rm -rf /usr/bin/node /usr/bin/nodejs /usr/bin/npm /usr/bin/npx || true
+    pct exec "$LXC_ID" -- rm -rf /usr/lib/node_modules || true
+    pct exec "$LXC_ID" -- rm -rf /usr/share/nodejs || true
+    pct exec "$LXC_ID" -- rm -rf /etc/alternatives/js || true
+    
+    # Nettoyer les dépôts NodeSource
+    pct exec "$LXC_ID" -- rm -f /etc/apt/sources.list.d/nodesource.list || true
+    pct exec "$LXC_ID" -- rm -f /etc/apt/keyrings/nodesource.gpg || true
+    pct exec "$LXC_ID" -- rm -f /usr/share/keyrings/nodesource.gpg || true
     
     # Mettre à jour la liste des paquets
     pct exec "$LXC_ID" -- apt-get update -qq
     
-    # Installer Node.js 18 depuis le dépôt NodeSource
-    log_info "Installation de Node.js 18 depuis NodeSource..."
-    pct exec "$LXC_ID" -- curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+    # Installer Node.js 18 depuis NodeSource avec une approche différente
+    log_info "Téléchargement et installation de Node.js 18..."
     
-    # Installation forcée de Node.js 18
-    pct exec "$LXC_ID" -- apt-get install -y nodejs || {
-        log_error "Échec de l'installation initiale, tentative de résolution des conflits..."
-        pct exec "$LXC_ID" -- apt-get install -y --fix-broken
-        pct exec "$LXC_ID" -- apt-get install -y nodejs
-    }
+    # Méthode alternative : installation directe du paquet .deb
+    pct exec "$LXC_ID" -- curl -fsSL https://deb.nodesource.com/setup_18.x -o /tmp/nodejs_setup.sh
+    pct exec "$LXC_ID" -- bash /tmp/nodejs_setup.sh
     
-    # Vérifier l'installation et la version
+    # Forcer l'installation en ignorant les conflits
+    pct exec "$LXC_ID" -- apt-get install -y --allow-downgrades --allow-remove-essential --allow-change-held-packages nodejs
+    
+    # Si ça échoue encore, essayer une installation manuelle
+    if ! pct exec "$LXC_ID" -- command -v node &>/dev/null || [[ $(pct exec "$LXC_ID" -- node -v | cut -d'v' -f2 | cut -d'.' -f1) -lt 18 ]]; then
+        log_warning "Installation standard échouée, tentative d'installation manuelle..."
+        
+        # Télécharger et installer manuellement Node.js 18
+        pct exec "$LXC_ID" -- curl -fsSL https://nodejs.org/dist/v18.20.4/node-v18.20.4-linux-x64.tar.xz -o /tmp/node.tar.xz
+        pct exec "$LXC_ID" -- tar -xf /tmp/node.tar.xz -C /tmp/
+        pct exec "$LXC_ID" -- cp -r /tmp/node-v18.20.4-linux-x64/* /usr/local/
+        pct exec "$LXC_ID" -- ln -sf /usr/local/bin/node /usr/bin/node
+        pct exec "$LXC_ID" -- ln -sf /usr/local/bin/npm /usr/bin/npm
+        pct exec "$LXC_ID" -- ln -sf /usr/local/bin/npx /usr/bin/npx
+        pct exec "$LXC_ID" -- rm -rf /tmp/node*
+    fi
+    
+    # Vérification finale
     if pct exec "$LXC_ID" -- command -v node &>/dev/null; then
         NODE_VERSION=$(pct exec "$LXC_ID" -- node -v)
-        NPM_VERSION=$(pct exec "$LXC_ID" -- npm -v)
+        NPM_VERSION=$(pct exec "$LXC_ID" -- npm -v 2>/dev/null || echo "N/A")
         
         # Vérifier que c'est bien Node.js 18+
         MAJOR_VERSION=$(echo "$NODE_VERSION" | cut -d'v' -f2 | cut -d'.' -f1)
@@ -429,7 +452,7 @@ install_selfup_in_container() {
             exit 1
         fi
     else
-        log_error "Échec de l'installation de Node.js dans le conteneur"
+        log_error "Échec complet de l'installation de Node.js"
         exit 1
     fi
     
