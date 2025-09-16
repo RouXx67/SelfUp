@@ -42,6 +42,14 @@ SelfUp/
 
 ### Installation automatique (Recommandée)
 
+**Installation en une ligne avec curl :**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/RouXx67/SelfUp/main/scripts/install.sh | sudo bash
+```
+
+**Ou installation classique :**
+
 ```bash
 # Cloner le repository
 git clone https://github.com/RouXx67/SelfUp.git
@@ -63,6 +71,14 @@ Le script d'installation va :
 - ✅ Démarrer l'application
 
 ### Installation LXC/Proxmox
+
+**Installation LXC en une ligne avec curl :**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/RouXx67/SelfUp/main/scripts/install_lxc.sh | sudo bash
+```
+
+**Ou installation classique :**
 
 Pour une installation automatique dans un conteneur LXC :
 

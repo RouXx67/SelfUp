@@ -14,6 +14,16 @@ Ce projet est hébergé sur GitHub : [https://github.com/RouXx67/SelfUp](https:/
 
 ## Utilisation
 
+### Installation rapide avec curl
+
+**Installation en une ligne :**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/RouXx67/SelfUp/main/scripts/install_lxc.sh | sudo bash
+```
+
+### Installation classique
+
 1. Rendez le script exécutable :
 ```bash
 chmod +x scripts/install_lxc.sh

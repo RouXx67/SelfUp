@@ -128,14 +128,25 @@ download_selfup() {
         log_info "Copying SelfUp files from current directory..."
         cp -r "$(dirname "$0")/.." "$SELFUP_DIR/app"
     else
-        log_error "SelfUp source files not found. Please run this script from the SelfUp directory."
-        exit 1
+        # Download from GitHub if not running from local directory
+        log_info "Downloading SelfUp from GitHub..."
+        
+        # Install git if not present
+        if ! command -v git &> /dev/null; then
+            apt-get install -y git
+        fi
+        
+        # Clone the repository
+        git clone https://github.com/RouXx67/SelfUp.git "$SELFUP_DIR/app" || {
+            log_error "Failed to download SelfUp from GitHub"
+            exit 1
+        }
     fi
     
     # Set ownership
     chown -R "$SELFUP_USER:$SELFUP_USER" "$SELFUP_DIR"
     
-    log_success "SelfUp files copied"
+    log_success "SelfUp files ready"
 }
 
 install_app_dependencies() {
