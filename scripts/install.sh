@@ -87,38 +87,43 @@ install_dependencies() {
 install_nodejs() {
     log_info "Installing Node.js $NODE_VERSION..."
     
-    # Check if Node.js is already installed
-    if command -v node &> /dev/null; then
-        CURRENT_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
-        if [[ "$CURRENT_VERSION" -ge "$NODE_VERSION" ]]; then
-            log_success "Node.js $CURRENT_VERSION is already installed"
-            return
-        else
-            log_warning "Node.js $CURRENT_VERSION detected, upgrading to version $NODE_VERSION..."
-            # Remove conflicting packages
-            apt-get remove -y nodejs nodejs-doc libnode72 || true
-            apt-get autoremove -y || true
-        fi
-    fi
+    # Supprimer complètement toute installation existante de Node.js
+    log_info "Cleaning existing Node.js installations..."
+    apt-get remove -y nodejs nodejs-doc libnode72 npm || true
+    apt-get autoremove -y || true
+    apt-get autoclean || true
     
-    # Clean any existing NodeSource repository
+    # Nettoyer les anciens dépôts NodeSource
     rm -f /etc/apt/sources.list.d/nodesource.list
+    rm -f /etc/apt/keyrings/nodesource.gpg
     
-    # Install Node.js from NodeSource repository
+    # Mettre à jour la liste des paquets
+    apt-get update -qq
+    
+    # Installer Node.js depuis le dépôt NodeSource
+    log_info "Installing Node.js $NODE_VERSION from NodeSource..."
     curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash -
     
-    # Force install to resolve conflicts
-    apt-get install -y --fix-broken nodejs || {
-        log_warning "Conflict detected, attempting to resolve..."
-        apt-get remove -y libnode72 nodejs-doc || true
+    # Installation forcée de Node.js
+    apt-get install -y nodejs || {
+        log_error "Initial installation failed, attempting to resolve conflicts..."
+        apt-get install -y --fix-broken
         apt-get install -y nodejs
     }
     
-    # Verify installation
+    # Vérifier l'installation et la version
     if command -v node &> /dev/null; then
         NODE_INSTALLED_VERSION=$(node -v)
         NPM_INSTALLED_VERSION=$(npm -v)
-        log_success "Node.js $NODE_INSTALLED_VERSION and npm $NPM_INSTALLED_VERSION installed"
+        
+        # Vérifier que c'est bien la bonne version majeure
+        MAJOR_VERSION=$(echo "$NODE_INSTALLED_VERSION" | cut -d'v' -f2 | cut -d'.' -f1)
+        if [[ "$MAJOR_VERSION" -ge "$NODE_VERSION" ]]; then
+            log_success "Node.js $NODE_INSTALLED_VERSION and npm $NPM_INSTALLED_VERSION installed successfully"
+        else
+            log_error "Incorrect Node.js version installed: $NODE_INSTALLED_VERSION (expected: $NODE_VERSION+)"
+            exit 1
+        fi
     else
         log_error "Failed to install Node.js"
         exit 1

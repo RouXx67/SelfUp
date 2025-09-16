@@ -391,37 +391,43 @@ install_selfup_in_container() {
     # Installation de Node.js
     log_info "Installation de Node.js..."
     
-    # Vérifier si Node.js est déjà installé dans le conteneur
-    if pct exec "$LXC_ID" -- command -v node &>/dev/null; then
-        CURRENT_VERSION=$(pct exec "$LXC_ID" -- node -v | cut -d'v' -f2 | cut -d'.' -f1)
-        if [[ "$CURRENT_VERSION" -ge "18" ]]; then
-            log_success "Node.js $CURRENT_VERSION déjà installé dans le conteneur"
-        else
-            log_warning "Node.js $CURRENT_VERSION détecté, mise à jour vers la version 18..."
-            # Supprimer les paquets en conflit
-            pct exec "$LXC_ID" -- apt-get remove -y nodejs nodejs-doc libnode72 || true
-            pct exec "$LXC_ID" -- apt-get autoremove -y || true
-        fi
-    fi
+    # Supprimer complètement toute installation existante de Node.js
+    log_info "Nettoyage des installations Node.js existantes..."
+    pct exec "$LXC_ID" -- apt-get remove -y nodejs nodejs-doc libnode72 npm || true
+    pct exec "$LXC_ID" -- apt-get autoremove -y || true
+    pct exec "$LXC_ID" -- apt-get autoclean || true
     
     # Nettoyer les anciens dépôts NodeSource
     pct exec "$LXC_ID" -- rm -f /etc/apt/sources.list.d/nodesource.list
+    pct exec "$LXC_ID" -- rm -f /etc/apt/keyrings/nodesource.gpg
     
-    # Installer Node.js depuis le dépôt NodeSource
+    # Mettre à jour la liste des paquets
+    pct exec "$LXC_ID" -- apt-get update -qq
+    
+    # Installer Node.js 18 depuis le dépôt NodeSource
+    log_info "Installation de Node.js 18 depuis NodeSource..."
     pct exec "$LXC_ID" -- curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
     
-    # Installation avec gestion des conflits
-    pct exec "$LXC_ID" -- apt-get install -y --fix-broken nodejs || {
-        log_warning "Conflit détecté, tentative de résolution..."
-        pct exec "$LXC_ID" -- apt-get remove -y libnode72 nodejs-doc || true
+    # Installation forcée de Node.js 18
+    pct exec "$LXC_ID" -- apt-get install -y nodejs || {
+        log_error "Échec de l'installation initiale, tentative de résolution des conflits..."
+        pct exec "$LXC_ID" -- apt-get install -y --fix-broken
         pct exec "$LXC_ID" -- apt-get install -y nodejs
     }
     
-    # Vérifier l'installation
+    # Vérifier l'installation et la version
     if pct exec "$LXC_ID" -- command -v node &>/dev/null; then
         NODE_VERSION=$(pct exec "$LXC_ID" -- node -v)
         NPM_VERSION=$(pct exec "$LXC_ID" -- npm -v)
-        log_success "Node.js $NODE_VERSION et npm $NPM_VERSION installés dans le conteneur"
+        
+        # Vérifier que c'est bien Node.js 18+
+        MAJOR_VERSION=$(echo "$NODE_VERSION" | cut -d'v' -f2 | cut -d'.' -f1)
+        if [[ "$MAJOR_VERSION" -ge "18" ]]; then
+            log_success "Node.js $NODE_VERSION et npm $NPM_VERSION installés avec succès"
+        else
+            log_error "Version incorrecte de Node.js installée: $NODE_VERSION (attendu: 18+)"
+            exit 1
+        fi
     else
         log_error "Échec de l'installation de Node.js dans le conteneur"
         exit 1
