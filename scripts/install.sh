@@ -87,34 +87,36 @@ install_dependencies() {
 install_nodejs() {
     log_info "Installing Node.js $NODE_VERSION..."
     
-    # Supprimer complètement toute installation existante de Node.js
-    log_info "Cleaning existing Node.js installations..."
-    apt-get remove -y nodejs nodejs-doc libnode72 npm || true
-    apt-get autoremove -y || true
-    apt-get autoclean || true
+    # Méthode simplifiée : installation directe des binaires officiels
+    log_info "Installing Node.js binaries directly..."
     
-    # Nettoyer les anciens dépôts NodeSource
-    rm -f /etc/apt/sources.list.d/nodesource.list
-    rm -f /etc/apt/keyrings/nodesource.gpg
+    # Installer les outils nécessaires
+    apt-get install -y xz-utils curl
     
-    # Mettre à jour la liste des paquets
-    apt-get update -qq
+    # Supprimer toute installation existante
+    apt-get remove --purge -y nodejs nodejs-doc libnode72 npm node-* || true
+    apt-get autoremove --purge -y || true
+    rm -rf /usr/bin/node /usr/bin/nodejs /usr/bin/npm /usr/bin/npx || true
+    rm -rf /usr/local/bin/node /usr/local/bin/npm /usr/local/bin/npx || true
+    rm -rf /usr/lib/node_modules /usr/local/lib/node_modules || true
     
-    # Installer Node.js depuis le dépôt NodeSource
-    log_info "Installing Node.js $NODE_VERSION from NodeSource..."
-    curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash -
+    # Télécharger et installer Node.js 18 directement
+    curl -fsSL https://nodejs.org/dist/v18.20.4/node-v18.20.4-linux-x64.tar.xz -o /tmp/node.tar.xz
+    tar -xf /tmp/node.tar.xz -C /tmp/
+    cp -r /tmp/node-v18.20.4-linux-x64/* /usr/local/
     
-    # Installation forcée de Node.js
-    apt-get install -y nodejs || {
-        log_error "Initial installation failed, attempting to resolve conflicts..."
-        apt-get install -y --fix-broken
-        apt-get install -y nodejs
-    }
+    # Créer les liens symboliques
+    ln -sf /usr/local/bin/node /usr/bin/node
+    ln -sf /usr/local/bin/npm /usr/bin/npm
+    ln -sf /usr/local/bin/npx /usr/bin/npx
     
-    # Vérifier l'installation et la version
+    # Nettoyer les fichiers temporaires
+    rm -rf /tmp/node*
+    
+    # Vérification finale
     if command -v node &> /dev/null; then
         NODE_INSTALLED_VERSION=$(node -v)
-        NPM_INSTALLED_VERSION=$(npm -v)
+        NPM_INSTALLED_VERSION=$(npm -v 2>/dev/null || echo "N/A")
         
         # Vérifier que c'est bien la bonne version majeure
         MAJOR_VERSION=$(echo "$NODE_INSTALLED_VERSION" | cut -d'v' -f2 | cut -d'.' -f1)
