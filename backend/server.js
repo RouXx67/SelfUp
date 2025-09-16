@@ -8,6 +8,7 @@ require('dotenv').config();
 const Database = require('./database/db');
 const appsRoutes = require('./routes/apps');
 const updatesRoutes = require('./routes/updates');
+const systemRoutes = require('./routes/system');
 const UpdateChecker = require('./services/updateChecker');
 
 const app = express();
@@ -28,6 +29,7 @@ Database.init();
 // Routes
 app.use('/api/apps', appsRoutes);
 app.use('/api/updates', updatesRoutes);
+app.use('/api/system', systemRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -511,6 +511,9 @@ install_selfup_in_container() {
     pct exec "$LXC_ID" -- useradd --system --shell /bin/bash --home-dir /opt/selfup --create-home selfup
     pct exec "$LXC_ID" -- mkdir -p /opt/selfup/app
     
+    # Sauvegarder l'ID du conteneur pour les mises à jour
+    pct exec "$LXC_ID" -- bash -c "echo '$LXC_ID' > /opt/selfup/container_id"
+    
     # Copier les fichiers avec une méthode plus robuste
     log_info "Copie des fichiers SelfUp..."
     pct exec "$LXC_ID" -- bash -c "cd /tmp/selfup && cp -r . /opt/selfup/app/"

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { FiSave, FiCheckCircle, FiXCircle, FiRefreshCw, FiActivity } from 'react-icons/fi'
+import { FiSave, FiCheckCircle, FiXCircle, FiRefreshCw, FiActivity, FiDownload } from 'react-icons/fi'
 import { useTheme } from '../contexts/ThemeContext'
 import { healthApi } from '../services/api'
 import toast from 'react-hot-toast'
@@ -9,6 +9,7 @@ export default function Settings() {
   const [loading, setLoading] = useState(false)
   const [healthStatus, setHealthStatus] = useState(null)
   const [checkingHealth, setCheckingHealth] = useState(false)
+  const [updating, setUpdating] = useState(false)
 
   useEffect(() => {
     checkHealth()
@@ -41,6 +42,34 @@ export default function Settings() {
       toast.error('Erreur lors du test Gotify')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleUpdate = async () => {
+    setUpdating(true)
+    try {
+      const response = await fetch('/api/system/update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        toast.success('Mise à jour lancée avec succès')
+        
+        // Optionnel : Recharger la page après quelques secondes
+        setTimeout(() => {
+          window.location.reload()
+        }, 3000)
+      } else {
+        throw new Error('Erreur lors de la mise à jour')
+      }
+    } catch (error) {
+      toast.error('Erreur lors de la mise à jour: ' + error.message)
+    } finally {
+      setUpdating(false)
     }
   }
 
@@ -99,6 +128,47 @@ export default function Settings() {
             )}
           </div>
         )}
+      </div>
+
+      {/* System Update */}
+      <div className="card p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Mise à jour du système
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Mettre à jour SelfUp vers la dernière version depuis GitHub
+            </p>
+          </div>
+          <button
+            onClick={handleUpdate}
+            disabled={updating}
+            className="btn btn-primary"
+          >
+            <FiDownload className={`w-4 h-4 mr-2 ${updating ? 'animate-pulse' : ''}`} />
+            {updating ? 'Mise à jour...' : 'Mettre à jour'}
+          </button>
+        </div>
+
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <FiDownload className="h-5 w-5 text-blue-400" />
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                Mise à jour automatique
+              </h3>
+              <div className="mt-2 text-sm text-blue-700 dark:text-blue-300">
+                <p>
+                  Cette fonction télécharge et installe automatiquement la dernière version de SelfUp depuis GitHub.
+                  Vos données et configuration seront préservées.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Appearance */}
