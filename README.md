@@ -45,7 +45,7 @@ SelfUp/
 **Installation en une ligne avec curl :**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/RouXx67/SelfUp/main/scripts/install.sh | sudo bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/RouXx67/SelfUp/main/scripts/install.sh)"
 ```
 
 **Ou installation classique :**
@@ -75,7 +75,7 @@ Le script d'installation va :
 **Installation LXC en une ligne avec curl :**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/RouXx67/SelfUp/main/scripts/install_lxc.sh | sudo bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/RouXx67/SelfUp/main/scripts/install_lxc.sh)"
 ```
 
 **Ou installation classique :**

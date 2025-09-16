@@ -19,7 +19,7 @@ Ce projet est hébergé sur GitHub : [https://github.com/RouXx67/SelfUp](https:/
 **Installation en une ligne :**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/RouXx67/SelfUp/main/scripts/install_lxc.sh | sudo bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/RouXx67/SelfUp/main/scripts/install_lxc.sh)"
 ```
 
 ### Installation classique
