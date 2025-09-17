@@ -10,6 +10,7 @@ const appsRoutes = require('./routes/apps');
 const updatesRoutes = require('./routes/updates');
 const systemRoutes = require('./routes/system');
 const presetsRoutes = require('./routes/presets');
+const versionsRoutes = require('./routes/versions');
 const UpdateChecker = require('./services/updateChecker');
 
 const app = express();
@@ -32,6 +33,7 @@ app.use('/api/apps', appsRoutes);
 app.use('/api/updates', updatesRoutes);
 app.use('/api/system', systemRoutes);
 app.use('/api/presets', presetsRoutes);
+app.use('/api/versions', versionsRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

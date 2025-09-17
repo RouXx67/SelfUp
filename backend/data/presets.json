@@ -1,0 +1,345 @@
+{
+  "presets": [
+    {
+      "id": "pangolin",
+      "name": "Pangolin",
+      "description": "Serveur proxy inverse tunnelé avec gestion d'identité et authentification",
+      "category": "proxy",
+      "icon_url": "https://raw.githubusercontent.com/fosrl/pangolin/main/assets/logo.png",
+      "web_url": "https://github.com/fosrl/pangolin",
+      "provider": "github",
+      "check_url": "https://api.github.com/repos/fosrl/pangolin/releases/latest",
+      "tags": ["proxy", "tunnel", "identity", "authentication"],
+      "ports": [8080],
+      "volumes": ["/config"],
+      "environment": {
+        "PANGOLIN_CONFIG_PATH": "/config",
+        "PANGOLIN_LOG_LEVEL": "info"
+      }
+    },
+    {
+      "id": "newt",
+      "name": "Newt",
+      "description": "Client de tunnel WireGuard pour Pangolin - connexion sécurisée",
+      "category": "network",
+      "icon_url": "https://raw.githubusercontent.com/fosrl/newt/main/assets/logo.png",
+      "web_url": "https://github.com/fosrl/newt",
+      "provider": "github",
+      "check_url": "https://api.github.com/repos/fosrl/newt/releases/latest",
+      "tags": ["wireguard", "tunnel", "vpn", "client"],
+      "ports": [51820],
+      "volumes": ["/config"],
+      "environment": {
+        "NEWT_CONFIG_PATH": "/config",
+        "NEWT_INTERFACE": "wg0"
+      }
+    },
+    {
+      "id": "overseerr",
+      "name": "Overseerr",
+      "description": "Gestionnaire de demandes pour Plex et Jellyfin - interface moderne",
+      "category": "media",
+      "icon_url": "https://raw.githubusercontent.com/sct/overseerr/develop/public/logo_full.svg",
+      "web_url": "https://overseerr.dev",
+      "provider": "github",
+      "check_url": "https://api.github.com/repos/sct/overseerr/releases/latest",
+      "tags": ["plex", "jellyfin", "requests", "media"],
+      "ports": [5055],
+      "volumes": ["/app/config"],
+      "environment": {
+        "LOG_LEVEL": "info",
+        "TZ": "Europe/Paris"
+      }
+    },
+    {
+      "id": "ombi",
+      "name": "Ombi",
+      "description": "Alternative à Overseerr - gestionnaire de demandes média",
+      "category": "media",
+      "icon_url": "https://raw.githubusercontent.com/Ombi-app/Ombi/develop/src/Ombi/wwwroot/images/logo.png",
+      "web_url": "https://ombi.io",
+      "provider": "github",
+      "check_url": "https://api.github.com/repos/Ombi-app/Ombi/releases/latest",
+      "tags": ["plex", "jellyfin", "requests", "media"],
+      "ports": [3579],
+      "volumes": ["/config"],
+      "environment": {
+        "TZ": "Europe/Paris"
+      }
+    },
+    {
+      "id": "gotify",
+      "name": "Gotify",
+      "description": "Serveur de notifications push auto-hébergé avec API REST",
+      "category": "notification",
+      "icon_url": "https://raw.githubusercontent.com/gotify/server/master/ui/src/assets/logo.png",
+      "web_url": "https://gotify.net",
+      "provider": "github",
+      "check_url": "https://api.github.com/repos/gotify/server/releases/latest",
+      "tags": ["notifications", "push", "api", "messaging"],
+      "ports": [80],
+      "volumes": ["/app/data"],
+      "environment": {
+        "GOTIFY_DEFAULTUSER_NAME": "admin",
+        "GOTIFY_DEFAULTUSER_PASS": "admin"
+      }
+    },
+    {
+      "id": "portainer",
+      "name": "Portainer",
+      "description": "Interface web pour gérer Docker et Kubernetes",
+      "category": "management",
+      "icon_url": "https://raw.githubusercontent.com/portainer/portainer/develop/app/assets/ico/favicon.ico",
+      "web_url": "https://portainer.io",
+      "provider": "github",
+      "check_url": "https://api.github.com/repos/portainer/portainer/releases/latest",
+      "tags": ["docker", "kubernetes", "management", "containers"],
+      "ports": [9000, 9443],
+      "volumes": ["/data", "/var/run/docker.sock:/var/run/docker.sock"],
+      "environment": {}
+    },
+    {
+      "id": "uptime-kuma",
+      "name": "Uptime Kuma",
+      "description": "Moniteur de disponibilité auto-hébergé comme Uptime Robot",
+      "category": "monitoring",
+      "icon_url": "https://raw.githubusercontent.com/louislam/uptime-kuma/master/public/icon.svg",
+      "web_url": "https://uptime.kuma.pet",
+      "provider": "github",
+      "check_url": "https://api.github.com/repos/louislam/uptime-kuma/releases/latest",
+      "tags": ["monitoring", "uptime", "alerts", "status"],
+      "ports": [3001],
+      "volumes": ["/app/data"],
+      "environment": {}
+    },
+    {
+      "id": "grafana",
+      "name": "Grafana",
+      "description": "Plateforme d'observabilité et de visualisation de données",
+      "category": "monitoring",
+      "icon_url": "https://raw.githubusercontent.com/grafana/grafana/main/public/img/grafana_icon.svg",
+      "web_url": "https://grafana.com",
+      "provider": "github",
+      "check_url": "https://api.github.com/repos/grafana/grafana/releases/latest",
+      "tags": ["monitoring", "visualization", "metrics", "dashboards"],
+      "ports": [3000],
+      "volumes": ["/var/lib/grafana"],
+      "environment": {
+        "GF_SECURITY_ADMIN_PASSWORD": "admin"
+      }
+    },
+    {
+      "id": "prometheus",
+      "name": "Prometheus",
+      "description": "Système de monitoring et d'alerting avec base de données temporelle",
+      "category": "monitoring",
+      "icon_url": "https://raw.githubusercontent.com/prometheus/prometheus/main/web/ui/static/img/prometheus_logo.svg",
+      "web_url": "https://prometheus.io",
+      "provider": "github",
+      "check_url": "https://api.github.com/repos/prometheus/prometheus/releases/latest",
+      "tags": ["monitoring", "metrics", "alerting", "timeseries"],
+      "ports": [9090],
+      "volumes": ["/prometheus"],
+      "environment": {}
+    },
+    {
+      "id": "checkcle",
+      "name": "Checkclé",
+      "description": "Outil de vérification et validation de clés et certificats",
+      "category": "security",
+      "icon_url": "https://via.placeholder.com/64x64/4F46E5/FFFFFF?text=CK",
+      "web_url": "#",
+      "provider": "generic",
+      "check_url": "",
+      "tags": ["security", "certificates", "validation", "keys"],
+      "ports": [8080],
+      "volumes": ["/config"],
+      "environment": {}
+    },
+    {
+      "id": "jellyfin",
+      "name": "Jellyfin",
+      "description": "Serveur multimédia libre et open-source - alternative à Plex",
+      "category": "media",
+      "icon_url": "https://raw.githubusercontent.com/jellyfin/jellyfin-ux/master/branding/SVG/icon-transparent.svg",
+      "web_url": "https://jellyfin.org",
+      "provider": "github",
+      "check_url": "https://api.github.com/repos/jellyfin/jellyfin/releases/latest",
+      "tags": ["media", "streaming", "movies", "tv", "music"],
+      "ports": [8096, 8920],
+      "volumes": ["/config", "/data/tvshows", "/data/movies"],
+      "environment": {
+        "JELLYFIN_PublishedServerUrl": "http://localhost:8096"
+      }
+    },
+    {
+      "id": "nextcloud",
+      "name": "Nextcloud",
+      "description": "Plateforme de cloud privé - stockage, partage et collaboration",
+      "category": "productivity",
+      "icon_url": "https://raw.githubusercontent.com/nextcloud/server/master/core/img/logo/logo.svg",
+      "web_url": "https://nextcloud.com",
+      "provider": "github",
+      "check_url": "https://api.github.com/repos/nextcloud/server/releases/latest",
+      "tags": ["cloud", "storage", "collaboration", "files"],
+      "ports": [80, 443],
+      "volumes": ["/var/www/html", "/var/www/html/data"],
+      "environment": {
+        "NEXTCLOUD_ADMIN_USER": "admin",
+        "NEXTCLOUD_ADMIN_PASSWORD": "changeme"
+      }
+    },
+    {
+      "id": "traefik",
+      "name": "Traefik",
+      "description": "Proxy inverse moderne avec découverte automatique de services",
+      "category": "proxy",
+      "icon_url": "https://raw.githubusercontent.com/traefik/traefik/master/docs/content/assets/img/traefik.logo.png",
+      "web_url": "https://traefik.io",
+      "provider": "github",
+      "check_url": "https://api.github.com/repos/traefik/traefik/releases/latest",
+      "tags": ["proxy", "load-balancer", "ssl", "docker"],
+      "ports": [80, 443, 8080],
+      "volumes": ["/var/run/docker.sock:/var/run/docker.sock", "/letsencrypt"],
+      "environment": {}
+    },
+    {
+      "id": "pihole",
+      "name": "Pi-hole",
+      "description": "Bloqueur de publicités au niveau DNS pour tout le réseau",
+      "category": "network",
+      "icon_url": "https://raw.githubusercontent.com/pi-hole/AdminLTE/master/img/favicons/favicon-96x96.png",
+      "web_url": "https://pi-hole.net",
+      "provider": "github",
+      "check_url": "https://api.github.com/repos/pi-hole/pi-hole/releases/latest",
+      "tags": ["dns", "adblock", "network", "privacy"],
+      "ports": [53, 80, 443],
+      "volumes": ["/etc/pihole", "/etc/dnsmasq.d"],
+      "environment": {
+        "WEBPASSWORD": "admin"
+      }
+    },
+    {
+      "id": "homeassistant",
+      "name": "Home Assistant",
+      "description": "Plateforme domotique open-source pour maison connectée",
+      "category": "automation",
+      "icon_url": "https://raw.githubusercontent.com/home-assistant/assets/master/logo/logo-small.png",
+      "web_url": "https://home-assistant.io",
+      "provider": "github",
+      "check_url": "https://api.github.com/repos/home-assistant/core/releases/latest",
+      "tags": ["domotique", "iot", "automation", "smart-home"],
+      "ports": [8123],
+      "volumes": ["/config"],
+      "environment": {
+        "TZ": "Europe/Paris"
+      }
+    },
+    {
+      "id": "vaultwarden",
+      "name": "Vaultwarden",
+      "description": "Serveur Bitwarden compatible - gestionnaire de mots de passe",
+      "category": "security",
+      "icon_url": "https://raw.githubusercontent.com/dani-garcia/vaultwarden/main/resources/vaultwarden-icon.png",
+      "web_url": "https://github.com/dani-garcia/vaultwarden",
+      "provider": "github",
+      "check_url": "https://api.github.com/repos/dani-garcia/vaultwarden/releases/latest",
+      "tags": ["password", "security", "bitwarden", "vault"],
+      "ports": [80],
+      "volumes": ["/data"],
+      "environment": {
+        "WEBSOCKET_ENABLED": "true"
+      }
+    },
+    {
+      "id": "nginx-proxy-manager",
+      "name": "Nginx Proxy Manager",
+      "description": "Interface web pour gérer Nginx comme proxy inverse avec SSL",
+      "category": "proxy",
+      "icon_url": "https://raw.githubusercontent.com/NginxProxyManager/nginx-proxy-manager/develop/frontend/assets/icon.png",
+      "web_url": "https://nginxproxymanager.com",
+      "provider": "github",
+      "check_url": "https://api.github.com/repos/NginxProxyManager/nginx-proxy-manager/releases/latest",
+      "tags": ["nginx", "proxy", "ssl", "certificates"],
+      "ports": [80, 443, 81],
+      "volumes": ["/data", "/letsencrypt"],
+      "environment": {}
+    },
+    {
+      "id": "wireguard",
+      "name": "WireGuard",
+      "description": "VPN moderne, rapide et sécurisé avec interface web",
+      "category": "network",
+      "icon_url": "https://raw.githubusercontent.com/WireGuard/wireguard-logo/master/wireguard-icon.png",
+      "web_url": "https://wireguard.com",
+      "provider": "github",
+      "check_url": "https://api.github.com/repos/linuxserver/docker-wireguard/releases/latest",
+      "tags": ["vpn", "security", "network", "tunnel"],
+      "ports": [51820, 51821],
+      "volumes": ["/config", "/lib/modules"],
+      "environment": {
+        "SERVERURL": "auto",
+        "SERVERPORT": "51820",
+        "PEERS": "1"
+      }
+    },
+    {
+      "id": "adguard",
+      "name": "AdGuard Home",
+      "description": "Bloqueur de publicités et de trackers au niveau réseau",
+      "category": "network",
+      "icon_url": "https://raw.githubusercontent.com/AdguardTeam/AdGuardHome/master/client/public/assets/favicon.png",
+      "web_url": "https://adguard.com/adguard-home",
+      "provider": "github",
+      "check_url": "https://api.github.com/repos/AdguardTeam/AdGuardHome/releases/latest",
+      "tags": ["dns", "adblock", "privacy", "network"],
+      "ports": [53, 80, 443, 3000],
+      "volumes": ["/opt/adguardhome/work", "/opt/adguardhome/conf"],
+      "environment": {}
+    },
+    {
+      "id": "plex",
+      "name": "Plex Media Server",
+      "description": "Serveur multimédia personnel pour streaming de contenu",
+      "category": "media",
+      "icon_url": "https://raw.githubusercontent.com/plexinc/plex-media-player/master/resources/images/icon.png",
+      "web_url": "https://plex.tv",
+      "provider": "github",
+      "check_url": "https://api.github.com/repos/plexinc/plex-media-server/releases/latest",
+      "tags": ["media", "streaming", "movies", "tv", "music"],
+      "ports": [32400, 3005, 8324, 32469],
+      "volumes": ["/config", "/data/tvshows", "/data/movies", "/transcode"],
+      "environment": {
+        "PLEX_CLAIM": "claim-token-here"
+      }
+    },
+    {
+      "id": "sonarr",
+      "name": "Sonarr",
+      "description": "Gestionnaire automatique de séries TV avec recherche et téléchargement",
+      "category": "media",
+      "icon_url": "https://raw.githubusercontent.com/Sonarr/Sonarr/develop/Logo/256.png",
+      "web_url": "https://sonarr.tv",
+      "provider": "github",
+      "check_url": "https://api.github.com/repos/Sonarr/Sonarr/releases/latest",
+      "tags": ["tv", "series", "automation", "download"],
+      "ports": [8989],
+      "volumes": ["/config", "/data/tvshows", "/downloads"],
+      "environment": {}
+    },
+    {
+      "id": "radarr",
+      "name": "Radarr",
+      "description": "Gestionnaire automatique de films avec recherche et téléchargement",
+      "category": "media",
+      "icon_url": "https://raw.githubusercontent.com/Radarr/Radarr/develop/Logo/256.png",
+      "web_url": "https://radarr.video",
+      "provider": "github",
+      "check_url": "https://api.github.com/repos/Radarr/Radarr/releases/latest",
+      "tags": ["movies", "films", "automation", "download"],
+      "ports": [7878],
+      "volumes": ["/config", "/data/movies", "/downloads"],
+      "environment": {}
+    }
+  ]
+}
