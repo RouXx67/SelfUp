@@ -59,10 +59,136 @@ router.get('/check-updates', async (req, res) => {
 // Route pour déclencher une mise à jour
 router.post('/update', async (req, res) => {
   try {
+    // Fonction pour détecter automatiquement le chemin d'installation
+    const detectInstallationPath = () => {
+      const possiblePaths = [
+        '/opt/selfup',
+        '/home/selfup',
+        '/var/www/selfup',
+        process.cwd(), // Répertoire courant
+        path.dirname(process.argv[1]) // Répertoire du script principal
+      ];
+
+      for (const testPath of possiblePaths) {
+        if (fs.existsSync(path.join(testPath, 'backend', 'server.js')) || 
+            fs.existsSync(path.join(testPath, 'server.js'))) {
+          return testPath;
+        }
+      }
+      return null;
+    };
+
+    // Fonction pour détecter l'environnement LXC de manière plus robuste
+    const detectLXCEnvironment = () => {
+      try {
+        // Méthode 1: Vérifier /proc/1/environ
+        if (fs.existsSync('/proc/1/environ')) {
+          const environ = fs.readFileSync('/proc/1/environ', 'utf8');
+          if (environ.includes('container=lxc')) {
+            return true;
+          }
+        }
+
+        // Méthode 2: Vérifier /proc/1/cgroup
+        if (fs.existsSync('/proc/1/cgroup')) {
+          const cgroup = fs.readFileSync('/proc/1/cgroup', 'utf8');
+          if (cgroup.includes('lxc') || cgroup.includes('/machine.slice/')) {
+            return true;
+          }
+        }
+
+        // Méthode 3: Vérifier les variables d'environnement
+        if (process.env.container === 'lxc' || process.env.LXC_NAME) {
+          return true;
+        }
+
+        // Méthode 4: Vérifier l'existence de fichiers spécifiques LXC
+        if (fs.existsSync('/.dockerenv') === false && 
+            fs.existsSync('/run/systemd/container')) {
+          const containerType = fs.readFileSync('/run/systemd/container', 'utf8').trim();
+          if (containerType === 'lxc') {
+            return true;
+          }
+        }
+
+        return false;
+      } catch (error) {
+        console.warn('Erreur lors de la détection LXC:', error.message);
+        return false;
+      }
+    };
+
+    // Fonction pour obtenir l'ID du conteneur de manière robuste
+    const getContainerId = (installPath) => {
+      try {
+        // Méthode 1: Lire depuis le fichier container_id
+        const containerIdPath = path.join(installPath, 'container_id');
+        if (fs.existsSync(containerIdPath)) {
+          const id = fs.readFileSync(containerIdPath, 'utf8').trim();
+          if (id && /^\d+$/.test(id)) {
+            return id;
+          }
+        }
+
+        // Méthode 2: Utiliser le hostname s'il est numérique
+        const hostname = require('os').hostname();
+        if (/^\d+$/.test(hostname)) {
+          // Sauvegarder l'ID pour les prochaines fois
+          try {
+            fs.writeFileSync(containerIdPath, hostname);
+          } catch (e) {
+            console.warn('Impossible de sauvegarder l\'ID du conteneur:', e.message);
+          }
+          return hostname;
+        }
+
+        // Méthode 3: Extraire depuis /proc/1/cgroup
+        if (fs.existsSync('/proc/1/cgroup')) {
+          const cgroup = fs.readFileSync('/proc/1/cgroup', 'utf8');
+          const match = cgroup.match(/lxc[\/\.]([0-9]+)/);
+          if (match && match[1]) {
+            const id = match[1];
+            try {
+              fs.writeFileSync(containerIdPath, id);
+            } catch (e) {
+              console.warn('Impossible de sauvegarder l\'ID du conteneur:', e.message);
+            }
+            return id;
+          }
+        }
+
+        // Méthode 4: Variable d'environnement LXC_NAME
+        if (process.env.LXC_NAME) {
+          const match = process.env.LXC_NAME.match(/([0-9]+)/);
+          if (match && match[1]) {
+            const id = match[1];
+            try {
+              fs.writeFileSync(containerIdPath, id);
+            } catch (e) {
+              console.warn('Impossible de sauvegarder l\'ID du conteneur:', e.message);
+            }
+            return id;
+          }
+        }
+
+        return null;
+      } catch (error) {
+        console.error('Erreur lors de la récupération de l\'ID du conteneur:', error);
+        return null;
+      }
+    };
+
+    // Détecter le chemin d'installation
+    const installPath = detectInstallationPath();
+    if (!installPath) {
+      return res.status(500).json({
+        success: false,
+        message: 'Impossible de détecter le chemin d\'installation de SelfUp'
+      });
+    }
+
     // Vérifier si on est dans un conteneur LXC
-    const isLXC = fs.existsSync('/proc/1/environ') && 
-                  fs.readFileSync('/proc/1/environ', 'utf8').includes('container=lxc');
-    
+    const isLXC = detectLXCEnvironment();
     if (!isLXC) {
       return res.status(400).json({
         success: false,
@@ -70,29 +196,8 @@ router.post('/update', async (req, res) => {
       });
     }
 
-    // Vérifier si le script de mise à jour existe sur l'hôte
-    // Le script sera exécuté depuis l'hôte Proxmox
-    const updateScript = '/root/update_lxc.sh'; // Chemin sur l'hôte
-    
-    // Obtenir l'ID du conteneur LXC actuel
-    let containerId = null;
-    try {
-      // Lire l'ID depuis le hostname ou un fichier de configuration
-      const hostname = require('os').hostname();
-      
-      // Si le hostname est l'ID du conteneur, l'utiliser
-      if (/^\d+$/.test(hostname)) {
-        containerId = hostname;
-      } else {
-        // Sinon, essayer de le lire depuis un fichier créé lors de l'installation
-        if (fs.existsSync('/opt/selfup/container_id')) {
-          containerId = fs.readFileSync('/opt/selfup/container_id', 'utf8').trim();
-        }
-      }
-    } catch (error) {
-      console.error('Erreur lors de la récupération de l\'ID du conteneur:', error);
-    }
-
+    // Obtenir l'ID du conteneur
+    const containerId = getContainerId(installPath);
     if (!containerId) {
       return res.status(500).json({
         success: false,
@@ -100,27 +205,36 @@ router.post('/update', async (req, res) => {
       });
     }
 
+    // Vérifier que le script de mise à jour existe sur l'hôte
+    const updateScript = '/root/update_lxc.sh';
+
     // Répondre immédiatement pour éviter le timeout
     res.json({
       success: true,
       message: 'Mise à jour lancée en arrière-plan',
-      containerId: containerId
+      containerId: containerId,
+      installPath: installPath
     });
 
     // Lancer la mise à jour en arrière-plan
-    // Note: Cette commande sera exécutée depuis le conteneur mais tentera
-    // d'appeler le script sur l'hôte via une méthode appropriée
     setTimeout(() => {
       // Créer un fichier de demande de mise à jour que l'hôte peut surveiller
       const updateRequest = {
         timestamp: new Date().toISOString(),
         containerId: containerId,
+        installPath: installPath,
         status: 'requested'
       };
       
       try {
-        fs.writeFileSync('/opt/selfup/update_request.json', JSON.stringify(updateRequest, null, 2));
-        console.log('Demande de mise à jour créée pour le conteneur', containerId);
+        // Créer le répertoire s'il n'existe pas
+        const updateDir = path.dirname(path.join(installPath, 'update_request.json'));
+        if (!fs.existsSync(updateDir)) {
+          fs.mkdirSync(updateDir, { recursive: true });
+        }
+
+        fs.writeFileSync(path.join(installPath, 'update_request.json'), JSON.stringify(updateRequest, null, 2));
+        console.log('Demande de mise à jour créée pour le conteneur', containerId, 'dans', installPath);
       } catch (error) {
         console.error('Erreur lors de la création de la demande de mise à jour:', error);
       }

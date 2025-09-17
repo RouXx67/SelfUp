@@ -154,17 +154,55 @@ export default function Settings() {
       
       if (response.ok) {
         const result = await response.json()
-        toast.success('Mise à jour lancée avec succès')
+        
+        // Afficher des informations détaillées sur la mise à jour
+        if (result.containerId && result.installPath) {
+          toast.success(`Mise à jour lancée avec succès\nConteneur: ${result.containerId}\nChemin: ${result.installPath}`, {
+            duration: 5000
+          })
+        } else {
+          toast.success('Mise à jour lancée avec succès')
+        }
         
         // Optionnel : Recharger la page après quelques secondes
         setTimeout(() => {
           window.location.reload()
-        }, 3000)
+        }, 5000) // Augmenté à 5 secondes pour laisser le temps de lire le message
       } else {
-        throw new Error('Erreur lors de la mise à jour')
+        // Récupérer le message d'erreur détaillé du serveur
+        let errorMessage = 'Erreur lors de la mise à jour'
+        try {
+          const errorData = await response.json()
+          if (errorData.message) {
+            errorMessage = errorData.message
+          }
+        } catch (e) {
+          // Si on ne peut pas parser la réponse JSON, utiliser le status
+          errorMessage = `Erreur ${response.status}: ${response.statusText}`
+        }
+        
+        toast.error(errorMessage, {
+          duration: 8000 // Message d'erreur affiché plus longtemps
+        })
+        throw new Error(errorMessage)
       }
     } catch (error) {
-      toast.error('Erreur lors de la mise à jour: ' + error.message)
+      // Gestion d'erreur améliorée avec différents types d'erreurs
+      let errorMessage = 'Erreur lors de la mise à jour'
+      
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        errorMessage = 'Impossible de contacter le serveur. Vérifiez votre connexion.'
+      } else if (error.message.includes('NetworkError')) {
+        errorMessage = 'Erreur réseau. Vérifiez votre connexion internet.'
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+      
+      toast.error(errorMessage, {
+        duration: 8000
+      })
+      
+      console.error('Erreur détaillée lors de la mise à jour:', error)
     } finally {
       setUpdating(false)
     }

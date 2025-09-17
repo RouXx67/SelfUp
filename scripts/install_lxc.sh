@@ -662,10 +662,60 @@ ENVEOF
     fi
 }
 
+# Vérification des fichiers nécessaires pour la mise à jour
+verify_update_files() {
+    log_info "Vérification des fichiers nécessaires pour la mise à jour..."
+    
+    local install_path="/opt/selfup"
+    local missing_files=()
+    local required_files=(
+        "$install_path/backend/server.js"
+        "$install_path/backend/package.json"
+        "$install_path/frontend/package.json"
+    )
+    
+    # Vérifier les fichiers requis dans le conteneur
+    for file in "${required_files[@]}"; do
+        if ! pct exec "$LXC_ID" -- test -f "$file"; then
+            missing_files+=("$file")
+        fi
+    done
+    
+    # Créer le fichier container_id s'il n'existe pas
+    if ! pct exec "$LXC_ID" -- test -f "$install_path/container_id"; then
+        log_info "Création du fichier container_id..."
+        pct exec "$LXC_ID" -- bash -c "echo '$LXC_ID' > $install_path/container_id"
+        pct exec "$LXC_ID" -- chown selfup:selfup "$install_path/container_id"
+    fi
+    
+    # Créer le répertoire de logs s'il n'existe pas
+    if ! pct exec "$LXC_ID" -- test -d "$install_path/logs"; then
+        log_info "Création du répertoire de logs..."
+        pct exec "$LXC_ID" -- mkdir -p "$install_path/logs"
+        pct exec "$LXC_ID" -- chown selfup:selfup "$install_path/logs"
+    fi
+    
+    # Vérifier les permissions sur le répertoire d'installation
+    pct exec "$LXC_ID" -- chown -R selfup:selfup "$install_path"
+    
+    if [ ${#missing_files[@]} -gt 0 ]; then
+        log_warning "Fichiers manquants détectés:"
+        for file in "${missing_files[@]}"; do
+            echo "  - $file"
+        done
+        log_info "Ces fichiers seront recréés lors de la prochaine mise à jour"
+    else
+        log_success "Tous les fichiers nécessaires sont présents"
+    fi
+}
+
 # Affichage des informations finales
 show_completion_info() {
     echo
     log_header "Installation terminée avec succès!"
+    
+    # Vérifier les fichiers nécessaires
+    verify_update_files
     
     # Installer le système de mise à jour sur l'hôte
     log_info "Installation du système de mise à jour automatique..."
