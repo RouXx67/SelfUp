@@ -2,6 +2,7 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
+const GotifyService = require('../services/gotify');
 const router = express.Router();
 
 // Route pour vérifier s'il y a des mises à jour disponibles
@@ -158,6 +159,138 @@ router.get('/update/status', (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la vérification du statut: ' + error.message
+    });
+  }
+});
+
+// Route pour obtenir la configuration Gotify actuelle
+router.get('/gotify/config', (req, res) => {
+  try {
+    const gotifyService = new GotifyService();
+    const config = gotifyService.getConfig();
+    
+    res.json({
+      success: true,
+      config: {
+        enabled: config.enabled,
+        url: config.url,
+        hasToken: config.hasToken
+      }
+    });
+  } catch (error) {
+    console.error('Erreur lors de la récupération de la config Gotify:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération de la configuration'
+    });
+  }
+});
+
+// Route pour sauvegarder la configuration Gotify
+router.post('/gotify/config', (req, res) => {
+  try {
+    const { url, token } = req.body;
+    
+    if (!url || !token) {
+      return res.status(400).json({
+        success: false,
+        message: 'URL et token sont requis'
+      });
+    }
+
+    // Valider l'URL
+    try {
+      new URL(url);
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: 'URL invalide'
+      });
+    }
+
+    // Lire le fichier .env existant
+    const envPath = path.join(__dirname, '../../.env');
+    let envContent = '';
+    
+    if (fs.existsSync(envPath)) {
+      envContent = fs.readFileSync(envPath, 'utf8');
+    }
+
+    // Mettre à jour ou ajouter les variables Gotify
+    const lines = envContent.split('\n');
+    let urlUpdated = false;
+    let tokenUpdated = false;
+
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].startsWith('GOTIFY_URL=')) {
+        lines[i] = `GOTIFY_URL=${url}`;
+        urlUpdated = true;
+      } else if (lines[i].startsWith('GOTIFY_TOKEN=')) {
+        lines[i] = `GOTIFY_TOKEN=${token}`;
+        tokenUpdated = true;
+      }
+    }
+
+    // Ajouter les variables si elles n'existent pas
+    if (!urlUpdated) {
+      lines.push(`GOTIFY_URL=${url}`);
+    }
+    if (!tokenUpdated) {
+      lines.push(`GOTIFY_TOKEN=${token}`);
+    }
+
+    // Sauvegarder le fichier .env
+    fs.writeFileSync(envPath, lines.join('\n'));
+
+    // Mettre à jour les variables d'environnement du processus
+    process.env.GOTIFY_URL = url;
+    process.env.GOTIFY_TOKEN = token;
+
+    res.json({
+      success: true,
+      message: 'Configuration Gotify sauvegardée avec succès'
+    });
+
+  } catch (error) {
+    console.error('Erreur lors de la sauvegarde de la config Gotify:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la sauvegarde de la configuration'
+    });
+  }
+});
+
+// Route pour tester la configuration Gotify
+router.post('/gotify/test', async (req, res) => {
+  try {
+    const gotifyService = new GotifyService();
+    
+    if (!gotifyService.isEnabled()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Gotify n\'est pas configuré'
+      });
+    }
+
+    const result = await gotifyService.sendTestNotification();
+    
+    if (result) {
+      res.json({
+        success: true,
+        message: 'Notification de test envoyée avec succès'
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'Échec de l\'envoi de la notification de test'
+      });
+    }
+
+  } catch (error) {
+    console.error('Erreur lors du test Gotify:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors du test de la notification'
     });
   }
 });

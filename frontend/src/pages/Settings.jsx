@@ -12,10 +12,18 @@ export default function Settings() {
   const [updating, setUpdating] = useState(false)
   const [updateInfo, setUpdateInfo] = useState(null)
   const [checkingUpdates, setCheckingUpdates] = useState(false)
+  const [gotifyConfig, setGotifyConfig] = useState({
+    url: '',
+    token: '',
+    enabled: false,
+    hasToken: false
+  })
+  const [gotifyLoading, setGotifyLoading] = useState(false)
 
   useEffect(() => {
     checkHealth()
     checkForUpdates()
+    loadGotifyConfig()
 
     // Vérifier les mises à jour toutes les 30 minutes
     const updateInterval = setInterval(checkForUpdates, 30 * 60 * 1000)
@@ -44,10 +52,19 @@ export default function Settings() {
   const handleTestGotify = async () => {
     setLoading(true)
     try {
-      // This would need to be implemented in the backend
-      toast.success('Test de notification Gotify envoyé')
+      const response = await fetch('/api/system/gotify/test', {
+        method: 'POST'
+      })
+      const data = await response.json()
+      
+      if (data.success) {
+        toast.success('Notification de test envoyée !')
+      } else {
+        toast.error(data.message || 'Erreur lors du test')
+      }
     } catch (error) {
-      toast.error('Erreur lors du test Gotify')
+      console.error('Erreur:', error)
+      toast.error('Erreur de connexion')
     } finally {
       setLoading(false)
     }
@@ -57,16 +74,71 @@ export default function Settings() {
     setCheckingUpdates(true)
     try {
       const response = await fetch('/api/system/check-updates')
-      if (response.ok) {
-        const result = await response.json()
-        setUpdateInfo(result)
+      const data = await response.json()
+      
+      if (data.success) {
+        setUpdateInfo(data)
       } else {
-        console.error('Erreur lors de la vérification des mises à jour')
+        toast.error('Erreur lors de la vérification des mises à jour')
       }
     } catch (error) {
-      console.error('Erreur lors de la vérification des mises à jour:', error)
+      console.error('Erreur:', error)
+      toast.error('Erreur de connexion')
     } finally {
       setCheckingUpdates(false)
+    }
+  }
+
+  const loadGotifyConfig = async () => {
+    try {
+      const response = await fetch('/api/system/gotify/config')
+      const data = await response.json()
+      
+      if (data.success) {
+        setGotifyConfig(prev => ({
+          ...prev,
+          enabled: data.config.enabled,
+          hasToken: data.config.hasToken,
+          url: data.config.url || ''
+        }))
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement de la config Gotify:', error)
+    }
+  }
+
+  const saveGotifyConfig = async () => {
+    if (!gotifyConfig.url || !gotifyConfig.token) {
+      toast.error('URL et token sont requis')
+      return
+    }
+
+    setGotifyLoading(true)
+    try {
+      const response = await fetch('/api/system/gotify/config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          url: gotifyConfig.url,
+          token: gotifyConfig.token
+        })
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        toast.success('Configuration Gotify sauvegardée')
+        loadGotifyConfig() // Recharger la config
+      } else {
+        toast.error(data.message || 'Erreur lors de la sauvegarde')
+      }
+    } catch (error) {
+      console.error('Erreur:', error)
+      toast.error('Erreur de connexion')
+    } finally {
+      setGotifyLoading(false)
     }
   }
 
@@ -288,29 +360,75 @@ export default function Settings() {
         </h2>
         
         <div className="space-y-4">
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
             <div className="flex">
               <div className="flex-shrink-0">
-                <FiActivity className="h-5 w-5 text-yellow-400" />
+                <FiActivity className="h-5 w-5 text-blue-400" />
               </div>
               <div className="ml-3">
-                <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">
                   Configuration Gotify
                 </h3>
-                <div className="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
+                <div className="mt-2 text-sm text-blue-700 dark:text-blue-300">
                   <p>
-                    Les notifications Gotify sont configurées via les variables d'environnement:
+                    Configurez votre serveur Gotify pour recevoir des notifications.
                   </p>
-                  <ul className="list-disc list-inside mt-2 space-y-1">
-                    <li><code className="bg-yellow-100 dark:bg-yellow-800 px-1 rounded">GOTIFY_URL</code> - URL de votre serveur Gotify</li>
-                    <li><code className="bg-yellow-100 dark:bg-yellow-800 px-1 rounded">GOTIFY_TOKEN</code> - Token d'application Gotify</li>
-                  </ul>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="gotify-url" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                URL du serveur Gotify
+              </label>
+              <input
+                id="gotify-url"
+                type="url"
+                value={gotifyConfig.url}
+                onChange={(e) => setGotifyConfig(prev => ({ ...prev, url: e.target.value }))}
+                placeholder="https://gotify.example.com"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="gotify-token" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Token d'application
+              </label>
+              <input
+                id="gotify-token"
+                type="password"
+                value={gotifyConfig.token}
+                onChange={(e) => setGotifyConfig(prev => ({ ...prev, token: e.target.value }))}
+                placeholder="Votre token d'application Gotify"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <button
+                onClick={saveGotifyConfig}
+                disabled={gotifyLoading || !gotifyConfig.url || !gotifyConfig.token}
+                className="btn btn-primary"
+              >
+                <FiSave className="w-4 h-4 mr-2" />
+                {gotifyLoading ? 'Sauvegarde...' : 'Sauvegarder'}
+              </button>
+
+              {gotifyConfig.enabled && (
+                <div className="flex items-center space-x-2">
+                  <div className="flex items-center text-green-600 dark:text-green-400">
+                    <FiCheckCircle className="w-4 h-4 mr-1" />
+                    <span className="text-sm">Configuré</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
             <div>
               <h3 className="text-sm font-medium text-gray-900 dark:text-white">
                 Test de notification
@@ -321,7 +439,7 @@ export default function Settings() {
             </div>
             <button
               onClick={handleTestGotify}
-              disabled={loading}
+              disabled={loading || !gotifyConfig.enabled}
               className="btn btn-sm btn-primary"
             >
               <FiActivity className="w-4 h-4 mr-2" />
