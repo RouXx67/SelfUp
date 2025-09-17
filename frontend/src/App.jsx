@@ -6,6 +6,7 @@ import AddApp from './pages/AddApp'
 import EditApp from './pages/EditApp'
 import Settings from './pages/Settings'
 import Updates from './pages/Updates'
+import Presets from './pages/Presets'
 import { ThemeProvider } from './contexts/ThemeContext'
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
             <Route index element={<Dashboard />} />
             <Route path="add" element={<AddApp />} />
             <Route path="edit/:id" element={<EditApp />} />
+            <Route path="presets" element={<Presets />} />
             <Route path="updates" element={<Updates />} />
             <Route path="settings" element={<Settings />} />
           </Route>

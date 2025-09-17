@@ -9,7 +9,8 @@ import {
   FiX,
   FiSun,
   FiMoon,
-  FiRefreshCw
+  FiRefreshCw,
+  FiPackage
 } from 'react-icons/fi'
 import { useTheme } from '../contexts/ThemeContext'
 import { updatesApi } from '../services/api'
@@ -24,6 +25,7 @@ export default function Layout() {
   const navigation = [
     { name: 'Dashboard', href: '/', icon: FiHome },
     { name: 'Ajouter une app', href: '/add', icon: FiPlus },
+    { name: 'Presets', href: '/presets', icon: FiPackage },
     { name: 'Mises à jour', href: '/updates', icon: FiBell },
     { name: 'Paramètres', href: '/settings', icon: FiSettings },
   ]
