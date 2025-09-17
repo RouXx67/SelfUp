@@ -1,8 +1,59 @@
 const express = require('express');
-const { exec } = require('child_process');
-const path = require('path');
 const fs = require('fs');
+const path = require('path');
+const { exec } = require('child_process');
 const router = express.Router();
+
+// Route pour vérifier s'il y a des mises à jour disponibles
+router.get('/check-updates', async (req, res) => {
+    try {
+        // Vérifier si on est dans un repository git
+        if (!fs.existsSync('.git')) {
+            return res.json({ 
+                hasUpdates: false, 
+                error: 'Not a git repository' 
+            });
+        }
+
+        // Récupérer le commit actuel
+        exec('git rev-parse HEAD', (error, currentCommit) => {
+            if (error) {
+                return res.json({ 
+                    hasUpdates: false, 
+                    error: 'Cannot get current commit' 
+                });
+            }
+
+            currentCommit = currentCommit.trim();
+
+            // Récupérer le dernier commit distant
+            exec('git ls-remote origin HEAD', (error, remoteOutput) => {
+                if (error) {
+                    return res.json({ 
+                        hasUpdates: false, 
+                        error: 'Cannot fetch remote commits' 
+                    });
+                }
+
+                const remoteCommit = remoteOutput.split('\t')[0];
+                const hasUpdates = currentCommit !== remoteCommit;
+
+                res.json({
+                    hasUpdates,
+                    currentCommit: currentCommit.substring(0, 7),
+                    remoteCommit: remoteCommit.substring(0, 7),
+                    message: hasUpdates ? 'Mise à jour disponible' : 'Système à jour'
+                });
+            });
+        });
+
+    } catch (error) {
+        res.status(500).json({ 
+            hasUpdates: false, 
+            error: error.message 
+        });
+    }
+});
 
 // Route pour déclencher une mise à jour
 router.post('/update', async (req, res) => {
