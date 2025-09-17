@@ -535,12 +535,19 @@ install_selfup_in_container() {
     
     pct exec "$LXC_ID" -- chown -R selfup:selfup /opt/selfup
     
-    # Configuration du repository Git pour les vérifications de mises à jour
+    # Configuration du repository Git
     log_info "Configuration du repository Git..."
     pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup git config --global user.name 'SelfUp System'"
     pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup git config --global user.email 'system@selfup.local'"
-    pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup git init"
-    pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup git remote add origin https://github.com/RouXx67/SelfUp.git"
+    
+    # Vérifier si le remote origin existe déjà
+    if pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup git remote get-url origin" >/dev/null 2>&1; then
+        log_info "Remote origin déjà configuré, mise à jour de l'URL..."
+        pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup git remote set-url origin https://github.com/RouXx67/SelfUp.git"
+    else
+        log_info "Ajout du remote origin..."
+        pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup git remote add origin https://github.com/RouXx67/SelfUp.git"
+    fi
     
     # Faire un commit initial pour avoir une base de comparaison
     pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup git add ."
