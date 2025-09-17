@@ -265,97 +265,123 @@ export default function Settings() {
         )}
       </div>
 
-      {/* System Update - Only show if updates are available */}
-      {updateInfo?.hasUpdates && (
-        <div className="card p-6 border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-900/20">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-lg font-semibold text-orange-900 dark:text-orange-100">
-                🚀 Mise à jour disponible !
-              </h2>
-              <p className="text-sm text-orange-700 dark:text-orange-300 mt-1">
-                Une nouvelle version de SelfUp est disponible
-              </p>
-              {updateInfo && (
-                <div className="text-xs text-orange-600 dark:text-orange-400 mt-2">
-                  <p>Version actuelle: {updateInfo.currentCommit}</p>
-                  <p>Nouvelle version: {updateInfo.remoteCommit}</p>
-                </div>
-              )}
-            </div>
-            <button
-              onClick={handleUpdate}
-              disabled={updating}
-              className="btn bg-orange-600 hover:bg-orange-700 text-white border-orange-600 hover:border-orange-700"
-            >
-              <FiDownload className={`w-4 h-4 mr-2 ${updating ? 'animate-pulse' : ''}`} />
-              {updating ? 'Mise à jour...' : 'Mettre à jour'}
-            </button>
+      {/* System Updates */}
+      <div className="card p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Mises à jour du système
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Vérifiez et installez les mises à jour de SelfUp
+            </p>
           </div>
+          <button
+            onClick={checkForUpdates}
+            disabled={checkingUpdates}
+            className="btn btn-secondary"
+          >
+            <FiRefreshCw className={`w-4 h-4 mr-2 ${checkingUpdates ? 'animate-spin' : ''}`} />
+            {checkingUpdates ? 'Vérification...' : 'Vérifier les mises à jour'}
+          </button>
+        </div>
 
-          <div className="bg-orange-100 dark:bg-orange-900/40 border border-orange-300 dark:border-orange-700 rounded-lg p-4">
-            <div className="flex">
+        {/* Update available */}
+        {updateInfo?.hasUpdates && (
+          <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4 mb-4">
+            <div className="flex items-start">
               <div className="flex-shrink-0">
-                <FiDownload className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                <FiDownload className="h-5 w-5 text-orange-600 dark:text-orange-400 mt-0.5" />
               </div>
-              <div className="ml-3">
+              <div className="ml-3 flex-1">
                 <h3 className="text-sm font-medium text-orange-800 dark:text-orange-200">
-                  Mise à jour automatique
+                  🚀 Mise à jour disponible !
                 </h3>
                 <div className="mt-2 text-sm text-orange-700 dark:text-orange-300">
-                  <p>• Le système sera mis à jour automatiquement</p>
-                  <p>• Vos données et configurations seront préservées</p>
-                  <p>• Le processus prend généralement 2-3 minutes</p>
-                  <p>• La page se rechargera automatiquement après la mise à jour</p>
+                  <p>Une nouvelle version de SelfUp est disponible</p>
+                  {updateInfo && (
+                    <div className="text-xs mt-2 space-y-1">
+                      <p>Version actuelle: <code className="bg-orange-100 dark:bg-orange-800 px-1 rounded">{updateInfo.currentCommit}</code></p>
+                      <p>Nouvelle version: <code className="bg-orange-100 dark:bg-orange-800 px-1 rounded">{updateInfo.remoteCommit}</code></p>
+                    </div>
+                  )}
+                </div>
+                <div className="mt-4">
+                  <button
+                    onClick={handleUpdate}
+                    disabled={updating}
+                    className="btn bg-orange-600 hover:bg-orange-700 text-white border-orange-600 hover:border-orange-700"
+                  >
+                    <FiDownload className={`w-4 h-4 mr-2 ${updating ? 'animate-pulse' : ''}`} />
+                    {updating ? 'Mise à jour en cours...' : 'Installer la mise à jour'}
+                  </button>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Update Status - Show when checking or no updates */}
-      {(checkingUpdates || (updateInfo && !updateInfo.hasUpdates)) && (
-        <div className="card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                État des mises à jour
-              </h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                {checkingUpdates ? 'Vérification des mises à jour...' : updateInfo?.message}
-              </p>
-            </div>
-            <button
-              onClick={checkForUpdates}
-              disabled={checkingUpdates}
-              className="btn btn-secondary"
-            >
-              <FiRefreshCw className={`w-4 h-4 mr-2 ${checkingUpdates ? 'animate-spin' : ''}`} />
-              {checkingUpdates ? 'Vérification...' : 'Vérifier'}
-            </button>
-          </div>
-
-          {updateInfo && !updateInfo.hasUpdates && (
-            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <FiCheckCircle className="h-5 w-5 text-green-400" />
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-green-800 dark:text-green-200">
-                    Système à jour
-                  </h3>
-                  <div className="mt-2 text-sm text-green-700 dark:text-green-300">
-                    <p>Vous utilisez la dernière version disponible</p>
-                    <p className="text-xs mt-1">Version: {updateInfo.currentCommit}</p>
-                  </div>
+        {/* No updates available */}
+        {updateInfo && !updateInfo.hasUpdates && !checkingUpdates && (
+          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 mb-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <FiCheckCircle className="h-5 w-5 text-green-400" />
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-green-800 dark:text-green-200">
+                  Système à jour
+                </h3>
+                <div className="mt-2 text-sm text-green-700 dark:text-green-300">
+                  <p>Vous utilisez la dernière version disponible</p>
+                  <p className="text-xs mt-1">Version: <code className="bg-green-100 dark:bg-green-800 px-1 rounded">{updateInfo.currentCommit}</code></p>
                 </div>
               </div>
             </div>
-          )}
+          </div>
+        )}
+
+        {/* Checking updates */}
+        {checkingUpdates && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <FiRefreshCw className="h-5 w-5 text-blue-400 animate-spin" />
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                  Vérification en cours...
+                </h3>
+                <div className="mt-2 text-sm text-blue-700 dark:text-blue-300">
+                  <p>Recherche de nouvelles versions disponibles</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Update process info */}
+        <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <FiActivity className="h-5 w-5 text-gray-400" />
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                Processus de mise à jour
+              </h3>
+              <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                <ul className="list-disc list-inside space-y-1">
+                  <li>Le système sera mis à jour automatiquement</li>
+                  <li>Vos données et configurations seront préservées</li>
+                  <li>Le processus prend généralement 2-3 minutes</li>
+                  <li>La page se rechargera automatiquement après la mise à jour</li>
+                </ul>
+              </div>
+            </div>
+          </div>
         </div>
-      )}
+      </div>
 
       {/* Appearance */}
       <div className="card p-6">
