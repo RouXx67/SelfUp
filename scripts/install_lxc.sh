@@ -549,9 +549,14 @@ install_selfup_in_container() {
         pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup git remote add origin https://github.com/RouXx67/SelfUp.git"
     fi
     
-    # Faire un commit initial pour avoir une base de comparaison
-    pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup git add ."
-    pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup git commit -m 'Installation initiale SelfUp'"
+    # Faire un commit initial pour avoir une base de comparaison (si nécessaire)
+    if pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup git status --porcelain" | grep -q .; then
+        log_info "Création d'un commit initial..."
+        pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup git add ."
+        pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup git commit -m 'Installation initiale SelfUp'"
+    else
+        log_info "Repository déjà à jour, pas de commit nécessaire"
+    fi
     
     # Récupérer les informations du repository distant
     if pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup git fetch origin"; then
