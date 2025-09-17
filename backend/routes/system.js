@@ -98,10 +98,14 @@ router.post('/update', async (req, res) => {
     // Fonction pour détecter l'environnement LXC de manière plus robuste
     const detectLXCEnvironment = () => {
       try {
+        console.log('🔍 Début de la détection LXC...');
+        
         // Méthode 1: Vérifier /proc/1/environ
         if (fs.existsSync('/proc/1/environ')) {
           const environ = fs.readFileSync('/proc/1/environ', 'utf8');
+          console.log('📄 /proc/1/environ trouvé, contenu partiel:', environ.substring(0, 200));
           if (environ.includes('container=lxc')) {
+            console.log('✅ LXC détecté via /proc/1/environ');
             return true;
           }
         }
@@ -109,28 +113,66 @@ router.post('/update', async (req, res) => {
         // Méthode 2: Vérifier /proc/1/cgroup
         if (fs.existsSync('/proc/1/cgroup')) {
           const cgroup = fs.readFileSync('/proc/1/cgroup', 'utf8');
-          if (cgroup.includes('lxc') || cgroup.includes('/machine.slice/')) {
+          console.log('📄 /proc/1/cgroup trouvé, contenu:', cgroup.substring(0, 300));
+          if (cgroup.includes('lxc') || cgroup.includes('/machine.slice/') || cgroup.includes('pve')) {
+            console.log('✅ LXC détecté via /proc/1/cgroup');
             return true;
           }
         }
 
         // Méthode 3: Vérifier les variables d'environnement
-        if (process.env.container === 'lxc' || process.env.LXC_NAME) {
+        console.log('🔍 Variables d\'environnement:', {
+          container: process.env.container,
+          LXC_NAME: process.env.LXC_NAME,
+          PROXMOX: process.env.PROXMOX
+        });
+        if (process.env.container === 'lxc' || process.env.LXC_NAME || process.env.PROXMOX) {
+          console.log('✅ LXC détecté via variables d\'environnement');
           return true;
         }
 
         // Méthode 4: Vérifier l'existence de fichiers spécifiques LXC
-        if (fs.existsSync('/.dockerenv') === false && 
-            fs.existsSync('/run/systemd/container')) {
+        if (fs.existsSync('/run/systemd/container')) {
           const containerType = fs.readFileSync('/run/systemd/container', 'utf8').trim();
+          console.log('📄 /run/systemd/container trouvé:', containerType);
           if (containerType === 'lxc') {
+            console.log('✅ LXC détecté via /run/systemd/container');
             return true;
           }
         }
 
+        // Méthode 5: Vérifier /proc/self/cgroup (plus fiable)
+        if (fs.existsSync('/proc/self/cgroup')) {
+          const selfCgroup = fs.readFileSync('/proc/self/cgroup', 'utf8');
+          console.log('📄 /proc/self/cgroup trouvé, contenu:', selfCgroup.substring(0, 300));
+          if (selfCgroup.includes('lxc') || selfCgroup.includes('pve')) {
+            console.log('✅ LXC détecté via /proc/self/cgroup');
+            return true;
+          }
+        }
+
+        // Méthode 6: Vérifier le hostname (souvent numérique dans LXC)
+        const hostname = require('os').hostname();
+        console.log('🏷️ Hostname:', hostname);
+        if (/^(lxc-)?[0-9]+$/.test(hostname)) {
+          console.log('✅ LXC probablement détecté via hostname numérique');
+          return true;
+        }
+
+        // Méthode 7: Vérifier si le fichier container_id existe (créé par notre script d'installation)
+        const installPath = detectInstallationPath();
+        if (installPath) {
+          const containerIdPath = path.join(installPath, 'container_id');
+          if (fs.existsSync(containerIdPath)) {
+            console.log('✅ LXC détecté via fichier container_id');
+            return true;
+          }
+        }
+
+        console.log('❌ Aucune méthode de détection LXC n\'a fonctionné');
         return false;
       } catch (error) {
-        console.warn('Erreur lors de la détection LXC:', error.message);
+        console.warn('❌ Erreur lors de la détection LXC:', error.message);
         return false;
       }
     };
