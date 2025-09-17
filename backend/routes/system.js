@@ -8,50 +8,67 @@ const router = express.Router();
 // Route pour vérifier s'il y a des mises à jour disponibles
 router.get('/check-updates', async (req, res) => {
     try {
-        // Vérifier si on est dans un repository git
-        if (!fs.existsSync('.git')) {
-            return res.json({ 
-                hasUpdates: false, 
-                error: 'Not a git repository' 
-            });
-        }
-
-        // Récupérer le commit actuel
-        exec('git rev-parse HEAD', (error, currentCommit) => {
-            if (error) {
+        // Vérifier si Git est installé
+        exec('git --version', (gitError) => {
+            if (gitError) {
                 return res.json({ 
+                    success: false,
                     hasUpdates: false, 
-                    error: 'Cannot get current commit' 
+                    error: 'Git n\'est pas installé sur ce système' 
                 });
             }
 
-            currentCommit = currentCommit.trim();
+            // Vérifier si on est dans un repository git
+            if (!fs.existsSync('.git')) {
+                return res.json({ 
+                    success: false,
+                    hasUpdates: false, 
+                    error: 'Ce répertoire n\'est pas un repository Git. Vérifiez l\'installation.' 
+                });
+            }
 
-            // Récupérer le dernier commit distant
-            exec('git ls-remote origin HEAD', (error, remoteOutput) => {
+            // Récupérer le commit actuel
+            exec('git rev-parse HEAD', (error, currentCommit) => {
                 if (error) {
                     return res.json({ 
+                        success: false,
                         hasUpdates: false, 
-                        error: 'Cannot fetch remote commits' 
+                        error: 'Impossible de récupérer le commit actuel: ' + error.message 
                     });
                 }
 
-                const remoteCommit = remoteOutput.split('\t')[0];
-                const hasUpdates = currentCommit !== remoteCommit;
+                currentCommit = currentCommit.trim();
 
-                res.json({
-                    hasUpdates,
-                    currentCommit: currentCommit.substring(0, 7),
-                    remoteCommit: remoteCommit.substring(0, 7),
-                    message: hasUpdates ? 'Mise à jour disponible' : 'Système à jour'
+                // Récupérer le dernier commit distant
+                exec('git ls-remote origin HEAD', (error, remoteOutput) => {
+                    if (error) {
+                        return res.json({ 
+                            success: false,
+                            hasUpdates: false, 
+                            error: 'Impossible de contacter le repository distant. Vérifiez la connexion internet.' 
+                        });
+                    }
+
+                    const remoteCommit = remoteOutput.split('\t')[0];
+                    const hasUpdates = currentCommit !== remoteCommit;
+
+                    res.json({
+                        success: true,
+                        hasUpdates,
+                        currentCommit: currentCommit.substring(0, 7),
+                        remoteCommit: remoteCommit.substring(0, 7),
+                        message: hasUpdates ? 'Mise à jour disponible' : 'Système à jour'
+                    });
                 });
             });
         });
 
     } catch (error) {
+        console.error('Erreur lors de la vérification des mises à jour:', error);
         res.status(500).json({ 
+            success: false,
             hasUpdates: false, 
-            error: error.message 
+            error: 'Erreur interne du serveur: ' + error.message 
         });
     }
 });

@@ -455,17 +455,17 @@ install_selfup_in_container() {
     # Mettre à jour la liste des paquets
     pct exec "$LXC_ID" -- apt-get update -qq
     
-    # Installer Node.js 20 avec gestion des conflits
-    log_info "Installation de Node.js 20..."
-    pct exec "$LXC_ID" -- apt-get install -y nodejs --fix-broken || {
+    # Installer Node.js 20 et Git avec gestion des conflits
+    log_info "Installation de Node.js 20 et Git..."
+    pct exec "$LXC_ID" -- apt-get install -y nodejs git --fix-broken || {
         log_warning "Problème d'installation, tentative de correction..."
         pct exec "$LXC_ID" -- dpkg --configure -a
         pct exec "$LXC_ID" -- apt-get install -f -y
-        pct exec "$LXC_ID" -- apt-get install -y nodejs
+        pct exec "$LXC_ID" -- apt-get install -y nodejs git
     }
     
     # Vérification de l'installation
-    log_info "Vérification de l'installation Node.js..."
+    log_info "Vérification de l'installation Node.js et Git..."
     
     if pct exec "$LXC_ID" -- node --version &>/dev/null; then
         NODE_VERSION=$(pct exec "$LXC_ID" -- node --version)
@@ -482,6 +482,15 @@ install_selfup_in_container() {
         fi
     else
         log_error "Échec de l'installation de Node.js"
+        exit 1
+    fi
+    
+    # Vérifier l'installation de Git
+    if pct exec "$LXC_ID" -- git --version &>/dev/null; then
+        GIT_VERSION=$(pct exec "$LXC_ID" -- git --version)
+        log_success "$GIT_VERSION installé avec succès"
+    else
+        log_error "Échec de l'installation de Git"
         exit 1
     fi
     
@@ -525,6 +534,24 @@ install_selfup_in_container() {
     fi
     
     pct exec "$LXC_ID" -- chown -R selfup:selfup /opt/selfup
+    
+    # Configuration du repository Git pour les vérifications de mises à jour
+    log_info "Configuration du repository Git..."
+    pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup git config --global user.name 'SelfUp System'"
+    pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup git config --global user.email 'system@selfup.local'"
+    pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup git init"
+    pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup git remote add origin https://github.com/RouXx67/SelfUp.git"
+    
+    # Faire un commit initial pour avoir une base de comparaison
+    pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup git add ."
+    pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup git commit -m 'Installation initiale SelfUp'"
+    
+    # Récupérer les informations du repository distant
+    if pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup git fetch origin"; then
+        log_success "Repository Git configuré et synchronisé avec succès"
+    else
+        log_warning "Repository Git configuré mais synchronisation échouée (vérifiez la connexion internet)"
+    fi
     
     # Installation des dépendances
     log_info "Installation des dépendances backend..."

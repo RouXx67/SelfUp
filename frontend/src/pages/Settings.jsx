@@ -78,12 +78,18 @@ export default function Settings() {
       
       if (data.success) {
         setUpdateInfo(data)
+        if (data.hasUpdates) {
+          toast.success(`Mise à jour disponible: ${data.currentCommit} → ${data.remoteCommit}`)
+        } else {
+          toast.success('Système à jour')
+        }
       } else {
-        toast.error('Erreur lors de la vérification des mises à jour')
+        toast.error(`Erreur: ${data.error}`)
+        console.error('Update check error:', data.error)
       }
     } catch (error) {
       console.error('Erreur:', error)
-      toast.error('Erreur de connexion')
+      toast.error('Erreur de connexion au serveur')
     } finally {
       setCheckingUpdates(false)
     }
