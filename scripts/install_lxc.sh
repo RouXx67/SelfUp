@@ -528,10 +528,38 @@ install_selfup_in_container() {
     
     # Installation des dépendances
     log_info "Installation des dépendances backend..."
-    pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup npm install"
+    if ! pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup npm install"; then
+        log_error "Échec de l'installation des dépendances backend"
+        log_info "Tentative de diagnostic..."
+        pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup npm --version"
+        pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && sudo -u selfup node --version"
+        pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && ls -la package.json"
+        exit 1
+    fi
+    log_success "Dépendances backend installées avec succès"
     
     log_info "Installation et build du frontend..."
-    pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app/frontend && sudo -u selfup npm install && sudo -u selfup npm run build"
+    
+    # Installation des dépendances frontend
+    if ! pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app/frontend && sudo -u selfup npm install"; then
+        log_error "Échec de l'installation des dépendances frontend"
+        log_info "Vérification de la structure du projet..."
+        pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app && ls -la frontend/"
+        pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app/frontend && ls -la package.json"
+        exit 1
+    fi
+    log_success "Dépendances frontend installées avec succès"
+    
+    # Build du frontend
+    log_info "Build du frontend en cours..."
+    if ! pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app/frontend && sudo -u selfup npm run build"; then
+        log_error "Échec du build du frontend"
+        log_info "Vérification des scripts disponibles..."
+        pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app/frontend && sudo -u selfup npm run --silent"
+        pct exec "$LXC_ID" -- bash -c "cd /opt/selfup/app/frontend && sudo -u selfup cat package.json | grep -A 10 scripts"
+        exit 1
+    fi
+    log_success "Frontend buildé avec succès"
     
     # Configuration de l'environnement
     pct exec "$LXC_ID" -- bash -c "
@@ -553,7 +581,8 @@ ENVEOF
     pct exec "$LXC_ID" -- chmod 755 /opt/selfup/data
     
     # Création du service systemd
-    pct exec "$LXC_ID" -- bash -c "
+    log_info "Création du service systemd..."
+    if ! pct exec "$LXC_ID" -- bash -c "
         cat > /etc/systemd/system/selfup.service << 'SERVICEEOF'
 [Unit]
 Description=SelfUp - Self-hosted Services Update Monitor
@@ -583,12 +612,34 @@ ReadWritePaths=/opt/selfup
 [Install]
 WantedBy=multi-user.target
 SERVICEEOF
-    "
+    "; then
+        log_error "Échec de la création du service systemd"
+        exit 1
+    fi
+    log_success "Service systemd créé avec succès"
     
     # Activation et démarrage du service
-    pct exec "$LXC_ID" -- systemctl daemon-reload
-    pct exec "$LXC_ID" -- systemctl enable selfup
-    pct exec "$LXC_ID" -- systemctl start selfup
+    log_info "Activation du service systemd..."
+    if ! pct exec "$LXC_ID" -- systemctl daemon-reload; then
+        log_error "Échec du rechargement des services systemd"
+        exit 1
+    fi
+    
+    if ! pct exec "$LXC_ID" -- systemctl enable selfup; then
+        log_error "Échec de l'activation du service selfup"
+        exit 1
+    fi
+    log_success "Service selfup activé"
+    
+    log_info "Démarrage du service selfup..."
+    if ! pct exec "$LXC_ID" -- systemctl start selfup; then
+        log_error "Échec du démarrage initial du service selfup"
+        log_info "Vérification des prérequis..."
+        pct exec "$LXC_ID" -- test -f /opt/selfup/app/backend/server.js && log_info "✓ server.js existe" || log_error "✗ server.js manquant"
+        pct exec "$LXC_ID" -- test -f /opt/selfup/.env && log_info "✓ .env existe" || log_error "✗ .env manquant"
+        pct exec "$LXC_ID" -- test -d /opt/selfup/data && log_info "✓ répertoire data existe" || log_error "✗ répertoire data manquant"
+        exit 1
+    fi
     
     # Nettoyage
     pct exec "$LXC_ID" -- rm -rf /tmp/selfup
