@@ -533,6 +533,68 @@ install_selfup_in_container() {
         exit 1
     fi
     
+    # Créer le répertoire data pour les presets s'il n'existe pas
+    log_info "Configuration des répertoires de données..."
+    pct exec "$LXC_ID" -- mkdir -p /opt/selfup/app/backend/data
+    
+    # Vérifier si le fichier presets.json existe, sinon le créer avec des données par défaut
+    if ! pct exec "$LXC_ID" -- test -f /opt/selfup/app/backend/data/presets.json; then
+        log_info "Création du fichier presets.json avec les données par défaut..."
+        pct exec "$LXC_ID" -- bash -c 'cat > /opt/selfup/app/backend/data/presets.json << '\''EOF'\''
+{
+  "presets": [
+    {
+      "id": "portainer",
+      "name": "Portainer",
+      "description": "Interface web pour gérer Docker et Kubernetes",
+      "category": "management",
+      "icon_url": "https://raw.githubusercontent.com/portainer/portainer/develop/app/assets/ico/favicon.ico",
+      "web_url": "https://portainer.io",
+      "provider": "github",
+      "check_url": "https://api.github.com/repos/portainer/portainer/releases/latest",
+      "tags": ["docker", "kubernetes", "management", "containers"],
+      "ports": [9000, 9443],
+      "volumes": ["/data", "/var/run/docker.sock:/var/run/docker.sock"],
+      "environment": {}
+    },
+    {
+      "id": "uptime-kuma",
+      "name": "Uptime Kuma",
+      "description": "Moniteur de disponibilité auto-hébergé comme Uptime Robot",
+      "category": "monitoring",
+      "icon_url": "https://raw.githubusercontent.com/louislam/uptime-kuma/master/public/icon.svg",
+      "web_url": "https://uptime.kuma.pet",
+      "provider": "github",
+      "check_url": "https://api.github.com/repos/louislam/uptime-kuma/releases/latest",
+      "tags": ["monitoring", "uptime", "alerts", "status"],
+      "ports": [3001],
+      "volumes": ["/app/data"],
+      "environment": {}
+    },
+    {
+      "id": "grafana",
+      "name": "Grafana",
+      "description": "Plateforme d'\''observabilité et de visualisation de données",
+      "category": "monitoring",
+      "icon_url": "https://raw.githubusercontent.com/grafana/grafana/main/public/img/grafana_icon.svg",
+      "web_url": "https://grafana.com",
+      "provider": "github",
+      "check_url": "https://api.github.com/repos/grafana/grafana/releases/latest",
+      "tags": ["monitoring", "visualization", "metrics", "dashboards"],
+      "ports": [3000],
+      "volumes": ["/var/lib/grafana"],
+      "environment": {
+        "GF_SECURITY_ADMIN_PASSWORD": "admin"
+      }
+    }
+  ]
+}
+EOF'
+        log_success "Fichier presets.json créé avec succès"
+    else
+        log_info "Fichier presets.json déjà présent"
+    fi
+    
     pct exec "$LXC_ID" -- chown -R selfup:selfup /opt/selfup
     
     # Configuration du repository Git
