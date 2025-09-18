@@ -95,148 +95,6 @@ router.post('/update', async (req, res) => {
       return null;
     };
 
-    // Fonction pour détecter l'environnement LXC de manière plus robuste
-    const detectLXCEnvironment = () => {
-      try {
-        console.log('🔍 Début de la détection LXC...');
-        
-        // Méthode 1: Vérifier /proc/1/environ
-        if (fs.existsSync('/proc/1/environ')) {
-          const environ = fs.readFileSync('/proc/1/environ', 'utf8');
-          console.log('📄 /proc/1/environ trouvé, contenu partiel:', environ.substring(0, 200));
-          if (environ.includes('container=lxc')) {
-            console.log('✅ LXC détecté via /proc/1/environ');
-            return true;
-          }
-        }
-
-        // Méthode 2: Vérifier /proc/1/cgroup
-        if (fs.existsSync('/proc/1/cgroup')) {
-          const cgroup = fs.readFileSync('/proc/1/cgroup', 'utf8');
-          console.log('📄 /proc/1/cgroup trouvé, contenu:', cgroup.substring(0, 300));
-          if (cgroup.includes('lxc') || cgroup.includes('/machine.slice/') || cgroup.includes('pve')) {
-            console.log('✅ LXC détecté via /proc/1/cgroup');
-            return true;
-          }
-        }
-
-        // Méthode 3: Vérifier les variables d'environnement
-        console.log('🔍 Variables d\'environnement:', {
-          container: process.env.container,
-          LXC_NAME: process.env.LXC_NAME,
-          PROXMOX: process.env.PROXMOX
-        });
-        if (process.env.container === 'lxc' || process.env.LXC_NAME || process.env.PROXMOX) {
-          console.log('✅ LXC détecté via variables d\'environnement');
-          return true;
-        }
-
-        // Méthode 4: Vérifier l'existence de fichiers spécifiques LXC
-        if (fs.existsSync('/run/systemd/container')) {
-          const containerType = fs.readFileSync('/run/systemd/container', 'utf8').trim();
-          console.log('📄 /run/systemd/container trouvé:', containerType);
-          if (containerType === 'lxc') {
-            console.log('✅ LXC détecté via /run/systemd/container');
-            return true;
-          }
-        }
-
-        // Méthode 5: Vérifier /proc/self/cgroup (plus fiable)
-        if (fs.existsSync('/proc/self/cgroup')) {
-          const selfCgroup = fs.readFileSync('/proc/self/cgroup', 'utf8');
-          console.log('📄 /proc/self/cgroup trouvé, contenu:', selfCgroup.substring(0, 300));
-          if (selfCgroup.includes('lxc') || selfCgroup.includes('pve')) {
-            console.log('✅ LXC détecté via /proc/self/cgroup');
-            return true;
-          }
-        }
-
-        // Méthode 6: Vérifier le hostname (souvent numérique dans LXC)
-        const hostname = require('os').hostname();
-        console.log('🏷️ Hostname:', hostname);
-        if (/^(lxc-)?[0-9]+$/.test(hostname)) {
-          console.log('✅ LXC probablement détecté via hostname numérique');
-          return true;
-        }
-
-        // Méthode 7: Vérifier si le fichier container_id existe (créé par notre script d'installation)
-        const installPath = detectInstallationPath();
-        if (installPath) {
-          const containerIdPath = path.join(installPath, 'container_id');
-          if (fs.existsSync(containerIdPath)) {
-            console.log('✅ LXC détecté via fichier container_id');
-            return true;
-          }
-        }
-
-        console.log('❌ Aucune méthode de détection LXC n\'a fonctionné');
-        return false;
-      } catch (error) {
-        console.warn('❌ Erreur lors de la détection LXC:', error.message);
-        return false;
-      }
-    };
-
-    // Fonction pour obtenir l'ID du conteneur de manière robuste
-    const getContainerId = (installPath) => {
-      try {
-        // Méthode 1: Lire depuis le fichier container_id
-        const containerIdPath = path.join(installPath, 'container_id');
-        if (fs.existsSync(containerIdPath)) {
-          const id = fs.readFileSync(containerIdPath, 'utf8').trim();
-          if (id && /^\d+$/.test(id)) {
-            return id;
-          }
-        }
-
-        // Méthode 2: Utiliser le hostname s'il est numérique
-        const hostname = require('os').hostname();
-        if (/^\d+$/.test(hostname)) {
-          // Sauvegarder l'ID pour les prochaines fois
-          try {
-            fs.writeFileSync(containerIdPath, hostname);
-          } catch (e) {
-            console.warn('Impossible de sauvegarder l\'ID du conteneur:', e.message);
-          }
-          return hostname;
-        }
-
-        // Méthode 3: Extraire depuis /proc/1/cgroup
-        if (fs.existsSync('/proc/1/cgroup')) {
-          const cgroup = fs.readFileSync('/proc/1/cgroup', 'utf8');
-          const match = cgroup.match(/lxc[\/\.]([0-9]+)/);
-          if (match && match[1]) {
-            const id = match[1];
-            try {
-              fs.writeFileSync(containerIdPath, id);
-            } catch (e) {
-              console.warn('Impossible de sauvegarder l\'ID du conteneur:', e.message);
-            }
-            return id;
-          }
-        }
-
-        // Méthode 4: Variable d'environnement LXC_NAME
-        if (process.env.LXC_NAME) {
-          const match = process.env.LXC_NAME.match(/([0-9]+)/);
-          if (match && match[1]) {
-            const id = match[1];
-            try {
-              fs.writeFileSync(containerIdPath, id);
-            } catch (e) {
-              console.warn('Impossible de sauvegarder l\'ID du conteneur:', e.message);
-            }
-            return id;
-          }
-        }
-
-        return null;
-      } catch (error) {
-        console.error('Erreur lors de la récupération de l\'ID du conteneur:', error);
-        return null;
-      }
-    };
-
     // Détecter le chemin d'installation
     const installPath = detectInstallationPath();
     if (!installPath) {
@@ -246,57 +104,73 @@ router.post('/update', async (req, res) => {
       });
     }
 
-    // Vérifier si on est dans un conteneur LXC
-    const isLXC = detectLXCEnvironment();
-    if (!isLXC) {
-      return res.status(400).json({
+    // Chemin vers le script de mise à jour
+    const updateScript = path.join(installPath, 'scripts', 'update.sh');
+    
+    // Vérifier que le script existe
+    if (!fs.existsSync(updateScript)) {
+      return res.status(404).json({
         success: false,
-        message: 'Cette fonction n\'est disponible que dans un conteneur LXC'
+        message: 'Script de mise à jour non trouvé: ' + updateScript
       });
     }
-
-    // Obtenir l'ID du conteneur
-    const containerId = getContainerId(installPath);
-    if (!containerId) {
-      return res.status(500).json({
-        success: false,
-        message: 'Impossible de déterminer l\'ID du conteneur LXC'
-      });
-    }
-
-    // Vérifier que le script de mise à jour existe sur l'hôte
-    const updateScript = '/root/update_lxc.sh';
 
     // Répondre immédiatement pour éviter le timeout
     res.json({
       success: true,
       message: 'Mise à jour lancée en arrière-plan',
-      containerId: containerId,
-      installPath: installPath
+      installPath: installPath,
+      updateScript: updateScript
     });
 
     // Lancer la mise à jour en arrière-plan
     setTimeout(() => {
-      // Créer un fichier de demande de mise à jour que l'hôte peut surveiller
-      const updateRequest = {
-        timestamp: new Date().toISOString(),
-        containerId: containerId,
-        installPath: installPath,
-        status: 'requested'
-      };
+      const { spawn } = require('child_process');
       
-      try {
-        // Créer le répertoire s'il n'existe pas
-        const updateDir = path.dirname(path.join(installPath, 'update_request.json'));
-        if (!fs.existsSync(updateDir)) {
-          fs.mkdirSync(updateDir, { recursive: true });
-        }
+      console.log('🚀 Lancement de la mise à jour avec le script:', updateScript);
+      
+      // Exécuter le script de mise à jour
+      const updateProcess = spawn('bash', [updateScript], {
+        cwd: installPath,
+        detached: true,
+        stdio: ['ignore', 'pipe', 'pipe']
+      });
 
-        fs.writeFileSync(path.join(installPath, 'update_request.json'), JSON.stringify(updateRequest, null, 2));
-        console.log('Demande de mise à jour créée pour le conteneur', containerId, 'dans', installPath);
-      } catch (error) {
-        console.error('Erreur lors de la création de la demande de mise à jour:', error);
-      }
+      // Logger la sortie du script
+      updateProcess.stdout.on('data', (data) => {
+        console.log('📝 Update stdout:', data.toString());
+      });
+
+      updateProcess.stderr.on('data', (data) => {
+        console.error('❌ Update stderr:', data.toString());
+      });
+
+      updateProcess.on('close', (code) => {
+        console.log(`✅ Script de mise à jour terminé avec le code: ${code}`);
+        
+        // Créer un fichier de statut
+        const statusFile = path.join(installPath, 'update_status.json');
+        const status = {
+          timestamp: new Date().toISOString(),
+          exitCode: code,
+          status: code === 0 ? 'success' : 'error',
+          message: code === 0 ? 'Mise à jour terminée avec succès' : 'Erreur lors de la mise à jour'
+        };
+        
+        try {
+          fs.writeFileSync(statusFile, JSON.stringify(status, null, 2));
+        } catch (error) {
+          console.error('Erreur lors de l\'écriture du statut:', error);
+        }
+      });
+
+      updateProcess.on('error', (error) => {
+        console.error('❌ Erreur lors du lancement du script de mise à jour:', error);
+      });
+
+      // Détacher le processus pour qu'il continue même si le serveur redémarre
+      updateProcess.unref();
+      
     }, 1000);
 
   } catch (error) {
@@ -311,16 +185,29 @@ router.post('/update', async (req, res) => {
 // Route pour vérifier le statut de la mise à jour
 router.get('/update/status', (req, res) => {
   try {
-    const updateRequestPath = '/opt/selfup/update_request.json';
-    const updateStatusPath = '/opt/selfup/update_status.json';
+    // Fonction pour détecter automatiquement le chemin d'installation
+    const detectInstallationPath = () => {
+      const possiblePaths = [
+        '/opt/selfup',
+        '/home/selfup',
+        '/var/www/selfup',
+        process.cwd(), // Répertoire courant
+        path.dirname(process.argv[1]) // Répertoire du script principal
+      ];
+
+      for (const testPath of possiblePaths) {
+        if (fs.existsSync(path.join(testPath, 'backend', 'server.js')) || 
+            fs.existsSync(path.join(testPath, 'server.js'))) {
+          return testPath;
+        }
+      }
+      return '/opt/selfup'; // Valeur par défaut
+    };
+
+    const installPath = detectInstallationPath();
+    const updateStatusPath = path.join(installPath, 'update_status.json');
     
     let status = { status: 'none' };
-    
-    // Vérifier s'il y a une demande en cours
-    if (fs.existsSync(updateRequestPath)) {
-      const request = JSON.parse(fs.readFileSync(updateRequestPath, 'utf8'));
-      status = { ...request, status: 'pending' };
-    }
     
     // Vérifier s'il y a un statut de mise à jour
     if (fs.existsSync(updateStatusPath)) {
