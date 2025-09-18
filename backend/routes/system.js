@@ -76,36 +76,8 @@ router.get('/check-updates', async (req, res) => {
 // Route pour déclencher une mise à jour
 router.post('/update', async (req, res) => {
   try {
-    // Fonction pour détecter automatiquement le chemin d'installation
-    const detectInstallationPath = () => {
-      const possiblePaths = [
-        '/opt/selfup',
-        '/home/selfup',
-        '/var/www/selfup',
-        process.cwd(), // Répertoire courant
-        path.dirname(process.argv[1]) // Répertoire du script principal
-      ];
-
-      for (const testPath of possiblePaths) {
-        if (fs.existsSync(path.join(testPath, 'backend', 'server.js')) || 
-            fs.existsSync(path.join(testPath, 'server.js'))) {
-          return testPath;
-        }
-      }
-      return null;
-    };
-
-    // Détecter le chemin d'installation
-    const installPath = detectInstallationPath();
-    if (!installPath) {
-      return res.status(500).json({
-        success: false,
-        message: 'Impossible de détecter le chemin d\'installation de SelfUp'
-      });
-    }
-
-    // Chemin vers le script de mise à jour
-    const updateScript = path.join(installPath, 'scripts', 'update.sh');
+    // Chemin vers le script de mise à jour (relatif au répertoire courant)
+    const updateScript = path.join(process.cwd(), 'scripts', 'update.sh');
     
     // Vérifier que le script existe
     if (!fs.existsSync(updateScript)) {
@@ -115,60 +87,42 @@ router.post('/update', async (req, res) => {
       });
     }
 
-    // Répondre immédiatement pour éviter le timeout
+    // Répondre immédiatement
     res.json({
       success: true,
-      message: 'Mise à jour lancée en arrière-plan',
-      installPath: installPath,
-      updateScript: updateScript
+      message: 'Mise à jour lancée avec succès'
     });
 
     // Lancer la mise à jour en arrière-plan
     setTimeout(() => {
       const { spawn } = require('child_process');
       
-      console.log('🚀 Lancement de la mise à jour avec le script:', updateScript);
+      console.log('🚀 Lancement du script de mise à jour:', updateScript);
       
       // Exécuter le script de mise à jour
       const updateProcess = spawn('bash', [updateScript], {
-        cwd: installPath,
+        cwd: process.cwd(),
         detached: true,
         stdio: ['ignore', 'pipe', 'pipe']
       });
 
-      // Logger la sortie du script
+      // Logger la sortie
       updateProcess.stdout.on('data', (data) => {
-        console.log('📝 Update stdout:', data.toString());
+        console.log('📝 Update:', data.toString());
       });
 
       updateProcess.stderr.on('data', (data) => {
-        console.error('❌ Update stderr:', data.toString());
+        console.error('❌ Update error:', data.toString());
       });
 
       updateProcess.on('close', (code) => {
-        console.log(`✅ Script de mise à jour terminé avec le code: ${code}`);
-        
-        // Créer un fichier de statut
-        const statusFile = path.join(installPath, 'update_status.json');
-        const status = {
-          timestamp: new Date().toISOString(),
-          exitCode: code,
-          status: code === 0 ? 'success' : 'error',
-          message: code === 0 ? 'Mise à jour terminée avec succès' : 'Erreur lors de la mise à jour'
-        };
-        
-        try {
-          fs.writeFileSync(statusFile, JSON.stringify(status, null, 2));
-        } catch (error) {
-          console.error('Erreur lors de l\'écriture du statut:', error);
-        }
+        console.log(`✅ Mise à jour terminée avec le code: ${code}`);
       });
 
       updateProcess.on('error', (error) => {
-        console.error('❌ Erreur lors du lancement du script de mise à jour:', error);
+        console.error('❌ Erreur script de mise à jour:', error);
       });
 
-      // Détacher le processus pour qu'il continue même si le serveur redémarre
       updateProcess.unref();
       
     }, 1000);
@@ -177,7 +131,7 @@ router.post('/update', async (req, res) => {
     console.error('Erreur lors de la mise à jour:', error);
     res.status(500).json({
       success: false,
-      message: 'Erreur interne du serveur: ' + error.message
+      message: 'Erreur: ' + error.message
     });
   }
 });
