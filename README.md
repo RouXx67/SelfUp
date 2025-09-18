@@ -1,6 +1,12 @@
 # SelfUp 🚀
 
-**SelfUp** est une application web complète pour suivre les mises à jour de vos services auto-hébergés. Inspirée de Homarr mais axée sur les notifications de mises à jour, elle vous permet de centraliser la surveillance de vos applications et de recevoir des notifications via Gotify.
+**SelfUp** est une application web complète pour suivre les mises à jour de vos services auto-hébergés, conçue par un passionné pour les passionnés. Inspirée de projets comme Homarr mais spécialement axée sur les notifications de mises à jour, elle centralise la surveillance de vos applications et vous alerte via Gotify.
+
+> **Un projet né de la passion, pas de l'expertise**
+> Je ne suis pas développeur professionnel, mais un utilisateur auto-hébergé qui avait besoin d'une solution simple pour suivre ses mises à jour. Ce projet a été réalisé grâce à :
+> - **L'intelligence artificielle locale** : Utilisation intensive de **Void** (interface pour Ollama) avec le modèle **Qwen3** pour comprendre les concepts, déboguer et générer du code
+> - **L'apprentissage par la pratique** : Découverte de Node.js, React et des APIs en autodidacte
+> - **La communauté open-source** : Inspiration et réutilisation de bonnes pratiques issues de projets existants
 
 ![SelfUp Dashboard](docs/dashboard-preview.png)
 
@@ -38,39 +44,7 @@ SelfUp/
 └── scripts/           # Scripts d'installation et utilitaires
 ```
 
-## 🚀 Installation rapide
-
-### Installation automatique (Recommandée)
-
-**Installation en une ligne avec curl :**
-
-```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/RouXx67/SelfUp/main/scripts/install.sh)"
-```
-
-**Ou installation classique :**
-
-```bash
-# Cloner le repository
-git clone https://github.com/RouXx67/SelfUp.git
-cd SelfUp
-
-# Rendre le script exécutable
-chmod +x scripts/install.sh
-
-# Lancer l'installation (nécessite sudo)
-sudo ./scripts/install.sh
-```
-
-Le script d'installation va :
-- ✅ Installer Node.js 18
-- ✅ Créer l'utilisateur système `selfup`
-- ✅ Installer les dépendances
-- ✅ Construire le frontend
-- ✅ Configurer le service systemd
-- ✅ Démarrer l'application
-
-### Installation LXC/Proxmox
+### Installation LXC/Proxmox 🚀
 
 **Installation LXC en une ligne avec curl :**
 
@@ -99,6 +73,12 @@ Le script d'installation LXC propose un **formulaire interactif** pour configure
 - 💾 **Ressources** (CPU, RAM, disque)
 - 🌐 **Configuration réseau** (DHCP ou IP statique, VLAN)
 - 🔧 **Installation automatique** de SelfUp dans le conteneur
+- ✅ Installer Node.js 18
+- ✅ Créer l'utilisateur système `selfup`
+- ✅ Installer les dépendances
+- ✅ Construire le frontend
+- ✅ Configurer le service systemd
+- ✅ Démarrer l'application
 
 📖 **Documentation complète** : [README_LXC.md](README_LXC.md)
 
@@ -156,24 +136,6 @@ GOTIFY_TOKEN=votre_token_gotify
 CHECK_INTERVAL_HOURS=6
 DEFAULT_TIMEOUT=10000
 ```
-
-### Configuration Gotify
-
-1. **Installer Gotify** (si pas déjà fait) :
-   ```bash
-   # Exemple avec Docker
-   docker run -d --name gotify \
-     -p 8080:80 \
-     -v gotify-data:/app/data \
-     gotify/server
-   ```
-
-2. **Créer une application** dans l'interface Gotify
-3. **Copier le token** et l'ajouter dans `.env`
-4. **Redémarrer SelfUp** :
-   ```bash
-   sudo systemctl restart selfup
-   ```
 
 ## 📱 Utilisation
 
