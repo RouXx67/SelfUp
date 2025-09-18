@@ -8,6 +8,7 @@
 > - **L'apprentissage par la pratique** : Découverte de Node.js, React et des APIs en autodidacte
 > - **La communauté open-source** : Inspiration et réutilisation de bonnes pratiques issues de projets existants
 
+
 ![SelfUp Dashboard](docs/dashboard-preview.png)
 
 ## 🔗 Repository GitHub
