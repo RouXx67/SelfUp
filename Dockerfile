@@ -8,14 +8,15 @@ COPY frontend/package*.json ./frontend/
 
 # Install all dependencies (root + frontend)
 RUN npm run install:all
-RUN npm run build
 
 # Copy the rest of the project
 COPY . .
 
-# Expose Vite dev server port
+# Expose Vite dev server port only
 EXPOSE 5173
-EXPOSE 3001
+
+# Improve file watching in containers (optional but useful)
+ENV CHOKIDAR_USEPOLLING=true
 
 # Run dev servers (backend + frontend) via concurrently
 CMD ["npm", "run", "dev"]
