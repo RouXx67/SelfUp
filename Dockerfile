@@ -2,11 +2,18 @@ FROM node:20-slim
 
 WORKDIR /app
 
+# Copy manifests for root and frontend to leverage Docker layer caching
 COPY package*.json ./
-RUN npm install --production
+COPY frontend/package*.json ./frontend/
 
+# Install all dependencies (root + frontend)
+RUN npm run install:all
+
+# Copy the rest of the project
 COPY . .
 
-EXPOSE 3000
+# Expose Vite dev server port
+EXPOSE 5173
 
-CMD ["npm", "start"]
+# Run dev servers (backend + frontend) via concurrently
+CMD ["npm", "run", "dev"]
