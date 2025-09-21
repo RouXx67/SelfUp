@@ -2,21 +2,20 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# Copy manifests for root and frontend to leverage Docker layer caching
+# Copy manifests and install deps (root + frontend)
 COPY package*.json ./
 COPY frontend/package*.json ./frontend/
-
-# Install all dependencies (root + frontend)
 RUN npm run install:all
 
-# Copy the rest of the project
+# Copy sources after installing deps
 COPY . .
 
-# Expose Vite dev server port only
-EXPOSE 5173
-
-# Improve file watching in containers (optional but useful)
+# Improve file watching inside containers
 ENV CHOKIDAR_USEPOLLING=true
 
-# Run dev servers (backend + frontend) via concurrently
+# Expose dev ports
+EXPOSE 5173
+EXPOSE 3001
+
+# Run dev servers (backend + frontend)
 CMD ["npm", "run", "dev"]
