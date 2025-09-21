@@ -14,6 +14,7 @@ COPY . .
 
 # Expose Vite dev server port
 EXPOSE 5173
+EXPOSE 3001
 
 # Run dev servers (backend + frontend) via concurrently
 CMD ["npm", "run", "dev"]
