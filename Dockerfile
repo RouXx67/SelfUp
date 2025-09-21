@@ -8,6 +8,7 @@ COPY frontend/package*.json ./frontend/
 
 # Install all dependencies (root + frontend)
 RUN npm run install:all
+RUN npm run build
 
 # Copy the rest of the project
 COPY . .
