@@ -83,6 +83,22 @@ Le script d'installation LXC propose un **formulaire interactif** pour configure
 
 📖 **Documentation complète** : [README_LXC.md](README_LXC.md)
 
+## 🚀 Lancer SelfUp avec `docker run`
+
+Pour tester ou déployer rapidement SelfUp en mode développement (backend + frontend hot reload) avec le Dockerfile fourni, utilisez la commande suivante :
+
+```bash
+docker run --name selfup-dev \
+  -p 3001:3001 \
+  -p 5173:5173 \
+  -e NODE_ENV=production \
+  -e DB_PATH=/app/data/selfup.db \
+  -e GOTIFY_URL=http://gotify:80 \        # (optionnel, si vous utilisez Gotify)
+  -e GOTIFY_TOKEN=your_token \            # (optionnel, si vous utilisez Gotify)
+  -v selfup-data:/app/data \
+  rouxx67/selfup:latest
+```
+
 ### Installation manuelle
 
 <details>
