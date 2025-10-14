@@ -383,7 +383,7 @@ export default function AddApp() {
         <div>
           <label htmlFor="icon_url" className="label">
             URL de l'icône
-          </label>
+            </label>
           <input
             type="url"
             id="icon_url"
