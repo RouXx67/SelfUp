@@ -5,6 +5,9 @@ const { exec } = require('child_process');
 const GotifyService = require('../services/gotify');
 const router = express.Router();
 
+// Sessions de mise à jour pour suivre les logs en temps réel
+const updateSessions = new Map();
+
 // Route pour vérifier s'il y a des mises à jour disponibles
 router.get('/check-updates', async (req, res) => {
     try {
@@ -76,65 +79,75 @@ router.get('/check-updates', async (req, res) => {
 // Route pour déclencher une mise à jour
 router.post('/update', async (req, res) => {
   try {
-    // Chemin vers le script de mise à jour (relatif au répertoire courant)
-    const updateScript = path.join(process.cwd(), 'scripts', 'update.sh');
-    
-    // Vérifier que le script existe
+    const updateScript = path.join(process.cwd(), 'scripts', 'update.sh')
     if (!fs.existsSync(updateScript)) {
-      return res.status(404).json({
-        success: false,
-        message: 'Script de mise à jour non trouvé: ' + updateScript
-      });
+      return res.status(404).json({ success: false, message: 'Script de mise à jour non trouvé: ' + updateScript })
     }
 
-    // Répondre immédiatement
-    res.json({
-      success: true,
-      message: 'Mise à jour lancée avec succès'
-    });
+    // Create a session id and log file
+    const sessionId = Date.now().toString()
+    const logsDir = path.join(process.cwd(), 'logs')
+    fs.mkdirSync(logsDir, { recursive: true })
+    const logPath = path.join(logsDir, `update-${sessionId}.log`)
+    const logStream = fs.createWriteStream(logPath, { flags: 'a' })
 
-    // Lancer la mise à jour en arrière-plan
-    setTimeout(() => {
-      const { spawn } = require('child_process');
-      
-      console.log('🚀 Lancement du script de mise à jour:', updateScript);
-      
-      // Exécuter le script de mise à jour
-      const updateProcess = spawn('bash', [updateScript], {
-        cwd: process.cwd(),
-        detached: true,
-        stdio: ['ignore', 'pipe', 'pipe']
-      });
+    // Initialize session
+    updateSessions.set(sessionId, {
+      id: sessionId,
+      logPath,
+      startedAt: new Date().toISOString(),
+      finishedAt: null,
+      exitCode: null,
+    })
 
-      // Logger la sortie
-      updateProcess.stdout.on('data', (data) => {
-        console.log('📝 Update:', data.toString());
-      });
+    // Respond immediately with the session id
+    res.json({ success: true, message: 'Mise à jour lancée avec succès', sessionId })
 
-      updateProcess.stderr.on('data', (data) => {
-        console.error('❌ Update error:', data.toString());
-      });
+    // Launch update in background
+    const { spawn } = require('child_process')
+    const updateProcess = spawn('bash', [updateScript], {
+      cwd: process.cwd(),
+      detached: true,
+      stdio: ['ignore', 'pipe', 'pipe']
+    })
 
-      updateProcess.on('close', (code) => {
-        console.log(`✅ Mise à jour terminée avec le code: ${code}`);
-      });
+    logStream.write(`🚀 Lancement du script de mise à jour: ${updateScript}\n`)
 
-      updateProcess.on('error', (error) => {
-        console.error('❌ Erreur script de mise à jour:', error);
-      });
+    updateProcess.stdout.on('data', (data) => {
+      const text = data.toString()
+      logStream.write(text)
+      console.log('📝 Update:', text.trim())
+    })
 
-      updateProcess.unref();
-      
-    }, 1000);
+    updateProcess.stderr.on('data', (data) => {
+      const text = data.toString()
+      logStream.write(text)
+      console.error('❌ Update error:', text.trim())
+    })
 
+    updateProcess.on('close', (code) => {
+      logStream.write(`\n✅ Mise à jour terminée avec le code: ${code}\n`)
+      logStream.end()
+      const session = updateSessions.get(sessionId)
+      if (session) {
+        session.finishedAt = new Date().toISOString()
+        session.exitCode = code
+        updateSessions.set(sessionId, session)
+      }
+    })
+
+    updateProcess.on('error', (error) => {
+      const msg = `❌ Erreur script de mise à jour: ${error.message}\n`
+      logStream.write(msg)
+      console.error(msg.trim())
+    })
+
+    updateProcess.unref()
   } catch (error) {
-    console.error('Erreur lors de la mise à jour:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur: ' + error.message
-    });
+    console.error('Erreur lors de la mise à jour:', error)
+    res.status(500).json({ success: false, message: 'Erreur: ' + error.message })
   }
-});
+})
 
 // Route pour vérifier le statut de la mise à jour
 router.get('/update/status', (req, res) => {
@@ -178,6 +191,161 @@ router.get('/update/status', (req, res) => {
 });
 
 // Route pour obtenir la configuration Gotify actuelle
+router.get('/gotify/config', (req, res) => {
+  try {
+    const gotifyService = new GotifyService();
+    const config = gotifyService.getConfig();
+    
+    res.json({
+      success: true,
+      config: {
+        enabled: config.enabled,
+        url: config.url,
+        hasToken: config.hasToken
+      }
+    });
+  } catch (error) {
+    console.error('Erreur lors de la récupération de la config Gotify:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération de la configuration'
+    });
+  }
+});
+
+// Route pour sauvegarder la configuration Gotify
+router.post('/gotify/config', (req, res) => {
+  try {
+    const { url, token } = req.body;
+    
+    if (!url || !token) {
+      return res.status(400).json({
+        success: false,
+        message: 'URL et token sont requis'
+      });
+    }
+
+    // Valider l'URL
+    try {
+      new URL(url);
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: 'URL invalide'
+      });
+    }
+
+    // Lire le fichier .env existant
+    const envPath = path.join(__dirname, '../../.env');
+    let envContent = '';
+    
+    if (fs.existsSync(envPath)) {
+      envContent = fs.readFileSync(envPath, 'utf8');
+    }
+
+    // Mettre à jour ou ajouter les variables Gotify
+    const lines = envContent.split('\n');
+    let urlUpdated = false;
+    let tokenUpdated = false;
+
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].startsWith('GOTIFY_URL=')) {
+        lines[i] = `GOTIFY_URL=${url}`;
+        urlUpdated = true;
+      } else if (lines[i].startsWith('GOTIFY_TOKEN=')) {
+        lines[i] = `GOTIFY_TOKEN=${token}`;
+        tokenUpdated = true;
+      }
+    }
+
+    // Ajouter les variables si elles n'existent pas
+    if (!urlUpdated) {
+      lines.push(`GOTIFY_URL=${url}`);
+    }
+    if (!tokenUpdated) {
+      lines.push(`GOTIFY_TOKEN=${token}`);
+    }
+
+    // Sauvegarder le fichier .env
+    fs.writeFileSync(envPath, lines.join('\n'));
+
+    // Mettre à jour les variables d'environnement du processus
+    process.env.GOTIFY_URL = url;
+    process.env.GOTIFY_TOKEN = token;
+
+    res.json({
+      success: true,
+      message: 'Configuration Gotify sauvegardée avec succès'
+    });
+
+  } catch (error) {
+    console.error('Erreur lors de la sauvegarde de la config Gotify:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la sauvegarde de la configuration'
+    });
+  }
+});
+
+// Route pour tester la configuration Gotify
+router.post('/gotify/test', async (req, res) => {
+  try {
+    const gotifyService = new GotifyService();
+    
+    if (!gotifyService.isEnabled()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Gotify n\'est pas configuré'
+      });
+    }
+
+    const result = await gotifyService.sendTestNotification();
+    
+    if (result) {
+      res.json({
+        success: true,
+        message: 'Notification de test envoyée avec succès'
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'Échec de l\'envoi de la notification de test'
+      });
+    }
+
+  } catch (error) {
+    console.error('Erreur lors du test Gotify:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors du test de la notification'
+    });
+  }
+});
+
+router.get('/update/logs/:id', (req, res) => {
+  try {
+    const sessionId = req.params.id
+    const session = updateSessions.get(sessionId)
+    if (!session) {
+      return res.status(404).json({ success: false, message: 'Session non trouvée' })
+    }
+
+    const content = fs.existsSync(session.logPath) ? fs.readFileSync(session.logPath, 'utf8') : ''
+    res.json({
+      success: true,
+      sessionId,
+      logs: content,
+      finished: Boolean(session.finishedAt),
+      exitCode: session.exitCode,
+      startedAt: session.startedAt,
+      finishedAt: session.finishedAt,
+    })
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Erreur lors de la récupération des logs: ' + error.message })
+  }
+})
+
+// Route pour vérifier le statut de la mise à jour
 router.get('/gotify/config', (req, res) => {
   try {
     const gotifyService = new GotifyService();

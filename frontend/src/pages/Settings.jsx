@@ -19,6 +19,13 @@ export default function Settings() {
     hasToken: false
   })
   const [gotifyLoading, setGotifyLoading] = useState(false)
+  // États pour la pop-up verbose de mise à jour
+  const [showUpdateModal, setShowUpdateModal] = useState(false)
+  const [updateSessionId, setUpdateSessionId] = useState(null)
+  const [updateLogs, setUpdateLogs] = useState('')
+  const [updateFinished, setUpdateFinished] = useState(false)
+  const [updateExitCode, setUpdateExitCode] = useState(null)
+  const [logPolling, setLogPolling] = useState(null)
 
   useEffect(() => {
     checkHealth()
@@ -214,6 +221,76 @@ export default function Settings() {
     }
   }
 
+  // Lancer la mise à jour avec journal verbose dans une modale
+  const startUpdateVerbose = async () => {
+    try {
+      setUpdating(true)
+      setShowUpdateModal(true)
+      setUpdateLogs('')
+      setUpdateFinished(false)
+      setUpdateExitCode(null)
+      
+      const response = await fetch('/api/system/update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (!response.ok) {
+        const errText = await response.text()
+        throw new Error(errText || 'Échec du démarrage de la mise à jour')
+      }
+      const data = await response.json()
+      if (!data.sessionId) {
+        throw new Error('Session de mise à jour introuvable (sessionId manquant)')
+      }
+      setUpdateSessionId(data.sessionId)
+      
+      // Démarrer le polling des logs
+      const intervalId = setInterval(async () => {
+        try {
+          const logsResp = await fetch(`/api/system/update/logs/${data.sessionId}`)
+          if (!logsResp.ok) return
+          const logsData = await logsResp.json()
+          setUpdateLogs(logsData.logs || '')
+          if (logsData.finished) {
+            setUpdateFinished(true)
+            setUpdateExitCode(logsData.exitCode)
+            clearInterval(intervalId)
+            setLogPolling(null)
+            setUpdating(false)
+          }
+        } catch (e) {
+          console.error('Erreur lors du polling des logs:', e)
+        }
+      }, 1000)
+      setLogPolling(intervalId)
+    } catch (error) {
+      console.error('Erreur de mise à jour verbose:', error)
+      toast.error(error.message || 'Erreur lors du démarrage de la mise à jour')
+      setUpdating(false)
+      setShowUpdateModal(false)
+    }
+  }
+
+  const closeUpdateModal = () => {
+    if (logPolling) {
+      clearInterval(logPolling)
+      setLogPolling(null)
+    }
+    setShowUpdateModal(false)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (logPolling) {
+        clearInterval(logPolling)
+      }
+    }
+  }, [logPolling])
+}
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
@@ -314,7 +391,7 @@ export default function Settings() {
                 </div>
                 <div className="mt-4">
                   <button
-                    onClick={handleUpdate}
+                    onClick={startUpdateVerbose}
                     disabled={updating}
                     className="btn bg-orange-600 hover:bg-orange-700 text-white border-orange-600 hover:border-orange-700"
                   >
@@ -387,6 +464,40 @@ export default function Settings() {
             </div>
           </div>
         </div>
+
+        {/* Modal verbose de mise à jour */}
+        {showUpdateModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/50" onClick={closeUpdateModal} />
+            <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-3xl mx-4">
+              <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Journal de mise à jour
+                </h3>
+                <button onClick={closeUpdateModal} className="btn btn-sm btn-secondary">Fermer</button>
+              </div>
+              <div className="p-4">
+                <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                  Session: {updateSessionId} {updateFinished ? `(terminée - code ${updateExitCode})` : '(en cours...)'}
+                </div>
+                <div className="bg-gray-900 text-green-200 rounded-md p-3 h-80 overflow-auto font-mono text-xs whitespace-pre-wrap">
+                  {updateLogs || 'En attente des logs...'}
+                </div>
+                <div className="mt-4 flex justify-end">
+                  {!updateFinished ? (
+                    <span className="text-sm text-gray-600 dark:text-gray-400 flex items-center">
+                      <FiActivity className="w-4 h-4 mr-2 animate-spin" /> Mise à jour en cours...
+                    </span>
+                  ) : (
+                    <span className={`text-sm ${updateExitCode === 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                      {updateExitCode === 0 ? 'Mise à jour terminée avec succès' : 'Mise à jour terminée avec des erreurs'}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Appearance */}
