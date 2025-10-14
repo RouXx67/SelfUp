@@ -198,7 +198,7 @@ export default function AddApp() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 max-h-64 overflow-y-auto scrollbar-hide">
-                {filteredPresets.slice(0, 10).map((preset) => ( // Limiter l'affichage pour ne pas surcharger
+                {filteredPresets.map((preset) => ( 
                   <button
                     key={preset.id}
                     onClick={() => handlePresetSelect(preset)}
