@@ -340,6 +340,20 @@
       "ports": [7878],
       "volumes": ["/config", "/data/movies", "/downloads"],
       "environment": {}
+    },
+    {
+      "id": "immich",
+      "name": "Immich",
+      "description": "Solution de sauvegarde de photos et vidéos auto-hébergée",
+      "category": "media",
+      "icon_url": "https://raw.githubusercontent.com/immich-app/immich/main/apps/web/public/favicon.ico",
+      "web_url": "https://immich.app",
+      "provider": "github",
+      "check_url": "https://api.github.com/repos/immich-app/immich/releases/latest",
+      "tags": ["photos", "videos", "backup", "media", "self-hosted"],
+      "ports": [2283],
+      "volumes": ["/usr/src/app/upload"],
+      "environment": {}
     }
   ]
 }
