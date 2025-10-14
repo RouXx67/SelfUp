@@ -289,7 +289,6 @@ export default function Settings() {
       }
     }
   }, [logPolling])
-}
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
