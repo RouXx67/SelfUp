@@ -106,7 +106,7 @@ router.post('/update', async (req, res) => {
 
     // Launch update in background
     const { spawn } = require('child_process')
-    const updateProcess = spawn('bash', [updateScript], {
+    const updateProcess = spawn('sudo', ['-n', 'bash', updateScript], {
       cwd: process.cwd(),
       detached: true,
       stdio: ['ignore', 'pipe', 'pipe']
@@ -586,7 +586,7 @@ router.post('/update', async (req, res) => {
 
     // Launch update in background
     const { spawn } = require('child_process')
-    const updateProcess = spawn('bash', [updateScript], {
+    const updateProcess = spawn('sudo', ['-n', 'bash', updateScript], {
       cwd: process.cwd(),
       detached: true,
       stdio: ['ignore', 'pipe', 'pipe']
