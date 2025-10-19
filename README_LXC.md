@@ -22,6 +22,12 @@ Ce projet est hébergé sur GitHub : [https://github.com/RouXx67/SelfUp](https:/
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/RouXx67/SelfUp/main/scripts/install_lxc.sh)"
 ```
 
+**Variante robuste (corrige les fins de ligne CRLF si présentes) :**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/RouXx67/SelfUp/main/scripts/install_lxc.sh | sed -e 's/\r$//' | bash
+```
+
 ### Installation classique
 
 1. Rendez le script exécutable :
