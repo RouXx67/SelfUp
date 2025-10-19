@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { FiSave, FiArrowLeft, FiHelpCircle, FiRefreshCw, FiSearch, FiPackage } from 'react-icons/fi'
+import { useNavigate } from 'react-router-dom'
+import { FiSave, FiArrowLeft, FiHelpCircle, FiRefreshCw, FiSearch, FiPackage, FiFilter, FiTag } from 'react-icons/fi'
 import { appsApi } from '../services/api'
 import toast from 'react-hot-toast'
 
@@ -13,6 +13,8 @@ export default function AddApp() {
   const [filteredPresets, setFilteredPresets] = useState([])
   const [loadingPresets, setLoadingPresets] = useState(true)
   const [presetSearchQuery, setPresetSearchQuery] = useState('')
+  const [categories, setCategories] = useState([])
+  const [selectedCategory, setSelectedCategory] = useState('')
 
   const [formData, setFormData] = useState({
     name: '',
@@ -51,6 +53,21 @@ export default function AddApp() {
   }, [])
 
   useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch('/api/presets/categories')
+        const data = await response.json()
+        if (data.success) {
+          setCategories(data.categories)
+        }
+      } catch (error) {
+        console.error('Error fetching categories:', error)
+      }
+    }
+    fetchCategories()
+  }, [])
+
+  useEffect(() => {
     let filtered = allPresets
 
     if (presetSearchQuery) {
@@ -62,8 +79,13 @@ export default function AddApp() {
         ))
       )
     }
+
+    if (selectedCategory) {
+      filtered = filtered.filter(preset => preset.category === selectedCategory)
+    }
+
     setFilteredPresets(filtered)
-  }, [allPresets, presetSearchQuery])
+  }, [allPresets, presetSearchQuery, selectedCategory])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -166,25 +188,51 @@ export default function AddApp() {
 
       {/* Presets section */}
       <div className="card p-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             Préréglages d'applications
           </h2>
-          <Link to="/presets" className="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300">
-            Voir tous les préréglages
-          </Link>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Recherchez et filtrez des préréglages pour pré-remplir le formulaire.</p>
         </div>
 
-        <div className="relative mb-4">
-          <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <input
-            type="text"
-            placeholder="Rechercher un préréglage..."
-            value={presetSearchQuery}
-            onChange={(e) => setPresetSearchQuery(e.target.value)}
-            className="input pl-10"
-          />
+        {/* Filtres */}
+        <div className="flex flex-col sm:flex-row gap-4 mb-4">
+          <div className="flex-1 relative">
+            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Rechercher un préréglage..."
+              value={presetSearchQuery}
+              onChange={(e) => setPresetSearchQuery(e.target.value)}
+              className="input pl-10"
+            />
+          </div>
+
+          <div className="sm:w-48">
+            <div className="relative">
+              <FiFilter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-600 dark:bg-gray-700 dark:text-white appearance-none"
+              >
+                <option value="">Toutes les catégories</option>
+                {categories.map(category => (
+                  <option key={category} value={category}>
+                    {category.charAt(0).toUpperCase() + category.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
+
+        {/* Résultats */}
+        {!loadingPresets && (
+          <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            {filteredPresets.length} préréglage{filteredPresets.length !== 1 ? 's' : ''} trouvé{filteredPresets.length !== 1 ? 's' : ''}
+          </div>
+        )}
 
         {loadingPresets ? (
           <div className="flex items-center justify-center h-24">
@@ -192,12 +240,12 @@ export default function AddApp() {
           </div>
         ) : (
           <>
-            {filteredPresets.length === 0 && presetSearchQuery ? (
+            {filteredPresets.length === 0 && (presetSearchQuery || selectedCategory) ? (
               <div className="text-center py-4 text-gray-600 dark:text-gray-400">
-                Aucun préréglage trouvé pour "{presetSearchQuery}"
+                Aucun préréglage trouvé.
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 max-h-64 overflow-y-auto scrollbar-hide">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {filteredPresets.map((preset) => ( 
                   <button
                     key={preset.id}
@@ -220,8 +268,29 @@ export default function AddApp() {
                         <FiPackage className="w-4 h-4 text-primary-500" />
                       </div>
                       <div>
-                        <div className="font-medium text-gray-900 dark:text-white">{preset.name}</div>
+                        <div className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                          <span>{preset.name}</span>
+                          {preset.category && (
+                            <span className="inline-block px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200 capitalize">
+                              {preset.category}
+                            </span>
+                          )}
+                        </div>
                         <div className="text-sm text-gray-500 dark:text-gray-400 capitalize">{preset.provider}</div>
+
+                        {preset.tags && preset.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {preset.tags.slice(0, 3).map(tag => (
+                              <span
+                                key={tag}
+                                className="inline-flex items-center px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200 rounded-md"
+                              >
+                                <FiTag className="w-3 h-3 mr-1" />
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </button>
