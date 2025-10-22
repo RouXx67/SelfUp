@@ -5,6 +5,11 @@
 
 set -e
 
+# Assurer l'entrée interactive même si le script est lancé via un pipe
+if [ ! -t 0 ] && [ -e /dev/tty ]; then
+  exec </dev/tty
+fi
+
 # Couleurs pour l'affichage
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -464,7 +469,7 @@ install_selfup_in_container() {
         pct exec "$LXC_ID" -- apt-get install -y nodejs git
     }
     
-    # Vérification de l'installation
+    # Vérifier de l'installation
     log_info "Vérification de l'installation Node.js et Git..."
     
     if pct exec "$LXC_ID" -- node --version &>/dev/null; then
