@@ -122,8 +122,18 @@ update_dependencies() {
     if [[ -d "frontend" ]]; then
         cd frontend
         if [[ -f "package.json" ]]; then
-            log_info "Installing frontend dependencies..."
-            npm install --no-audit --no-fund
+            log_info "Installing frontend dependencies (including dev)..."
+            if [[ -f "package-lock.json" ]]; then
+                npm ci --include=dev --no-audit --no-fund || npm install --include=dev --no-audit --no-fund
+            else
+                npm install --include=dev --no-audit --no-fund
+            fi
+            
+            # Ensure Vite is available even if npm runs in production mode
+            if ! npx --yes vite --version >/dev/null 2>&1; then
+                log_warning "Vite not found; installing it as a devDependency"
+                npm install -D vite
+            fi
             
             log_info "Building frontend..."
             npm run build
