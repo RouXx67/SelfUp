@@ -82,9 +82,28 @@ router.get('/check-updates', async (req, res) => {
 // Route pour déclencher une mise à jour
 router.post('/update', async (req, res) => {
   try {
-    const updateScript = path.join(process.cwd(), 'scripts', 'update.sh')
+    // Function to detect if we can use sudo
+    const canUseSudo = () => {
+      try {
+        const { execSync } = require('child_process')
+        // Test if sudo is available and can be used without password
+        execSync('sudo -n true', { stdio: 'ignore', timeout: 5000 })
+        return true
+      } catch (error) {
+        return false
+      }
+    }
+
+    // Choose the appropriate update script
+    const hasSudo = canUseSudo()
+    const scriptName = hasSudo ? 'update.sh' : 'update_no_sudo.sh'
+    const updateScript = path.join(process.cwd(), 'scripts', scriptName)
+    
     if (!fs.existsSync(updateScript)) {
-      return res.status(404).json({ success: false, message: 'Script de mise à jour non trouvé: ' + updateScript })
+      return res.status(404).json({ 
+        success: false, 
+        message: `Script de mise à jour non trouvé: ${updateScript}` 
+      })
     }
 
     // Create a session id and log file
@@ -101,20 +120,38 @@ router.post('/update', async (req, res) => {
       startedAt: new Date().toISOString(),
       finishedAt: null,
       exitCode: null,
+      scriptUsed: scriptName
     })
 
     // Respond immediately with the session id
-    res.json({ success: true, message: 'Mise à jour lancée avec succès', sessionId })
+    res.json({ 
+      success: true, 
+      message: `Mise à jour lancée avec succès (${hasSudo ? 'avec sudo' : 'sans sudo'})`, 
+      sessionId,
+      scriptUsed: scriptName
+    })
 
     // Launch update in background
     const { spawn } = require('child_process')
-    const updateProcess = spawn('sudo', ['-n', 'bash', updateScript], {
-      cwd: process.cwd(),
-      detached: true,
-      stdio: ['ignore', 'pipe', 'pipe']
-    })
+    
+    // Choose command based on sudo availability
+    let updateProcess
+    if (hasSudo) {
+      updateProcess = spawn('sudo', ['-n', 'bash', updateScript], {
+        cwd: process.cwd(),
+        detached: true,
+        stdio: ['ignore', 'pipe', 'pipe']
+      })
+    } else {
+      updateProcess = spawn('bash', [updateScript], {
+        cwd: process.cwd(),
+        detached: true,
+        stdio: ['ignore', 'pipe', 'pipe']
+      })
+    }
 
     logStream.write(`🚀 Lancement du script de mise à jour: ${updateScript}\n`)
+    logStream.write(`🔧 Mode: ${hasSudo ? 'Avec privilèges sudo' : 'Sans privilèges sudo'}\n`)
 
     updateProcess.stdout.on('data', (data) => {
       const text = data.toString()
