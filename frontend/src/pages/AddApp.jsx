@@ -245,50 +245,71 @@ export default function AddApp() {
                 Aucun préréglage trouvé.
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {filteredPresets.map((preset) => ( 
                   <button
                     key={preset.id}
                     onClick={() => handlePresetSelect(preset)}
-                    className="p-3 text-left border border-gray-200 dark:border-gray-700 rounded-lg hover:border-primary-300 hover:bg-primary-50 dark:hover:bg-primary-900 transition-colors"
+                    className="p-5 text-left border border-gray-200 dark:border-gray-700 rounded-xl hover:border-primary-300 hover:bg-primary-50 dark:hover:bg-primary-900 transition-all duration-200 hover:shadow-md group"
                   >
-                    <div className="flex items-center space-x-3">
-                      <img 
-                        src={preset.icon_url} 
-                        alt={preset.name}
-                        className="w-8 h-8 rounded object-cover"
-                        onError={(e) => {
-                          e.target.style.display = 'none'
-                          e.target.nextSibling.style.display = 'flex'
-                        }}
-                      />
-                      <div 
-                        className={`w-8 h-8 rounded bg-primary-100 dark:bg-primary-900 flex items-center justify-center text-lg ${preset.icon_url ? 'hidden' : 'flex'}`}
-                      >
-                        <FiPackage className="w-4 h-4 text-primary-500" />
+                    <div className="flex items-start space-x-4">
+                      <div className="flex-shrink-0">
+                        <img 
+                          src={preset.icon_url} 
+                          alt={preset.name}
+                          className="w-12 h-12 rounded-lg object-cover shadow-sm"
+                          onError={(e) => {
+                            e.target.style.display = 'none'
+                            e.target.nextSibling.style.display = 'flex'
+                          }}
+                        />
+                        <div 
+                          className={`w-12 h-12 rounded-lg bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-800 dark:to-primary-900 flex items-center justify-center shadow-sm ${preset.icon_url ? 'hidden' : 'flex'}`}
+                        >
+                          <FiPackage className="w-6 h-6 text-primary-600 dark:text-primary-400" />
+                        </div>
                       </div>
-                      <div>
-                        <div className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
-                          <span>{preset.name}</span>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold text-gray-900 dark:text-white text-lg group-hover:text-primary-700 dark:group-hover:text-primary-300 transition-colors">
+                            {preset.name}
+                          </h3>
                           {preset.category && (
-                            <span className="inline-block px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200 capitalize">
+                            <span className="inline-block px-2.5 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 capitalize">
                               {preset.category}
                             </span>
                           )}
                         </div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400 capitalize">{preset.provider}</div>
+                        
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="text-sm text-gray-500 dark:text-gray-400 capitalize font-medium">
+                            {preset.provider}
+                          </span>
+                        </div>
+
+                        {preset.description && (
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">
+                            {preset.description}
+                          </p>
+                        )}
 
                         {preset.tags && preset.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {preset.tags.slice(0, 3).map(tag => (
+                          <div className="flex flex-wrap gap-1.5">
+                            {preset.tags.slice(0, 4).map(tag => (
                               <span
                                 key={tag}
-                                className="inline-flex items-center px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200 rounded-md"
+                                className="inline-flex items-center px-2.5 py-1 text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                               >
                                 <FiTag className="w-3 h-3 mr-1" />
                                 {tag}
                               </span>
                             ))}
+                            {preset.tags.length > 4 && (
+                              <span className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">
+                                +{preset.tags.length - 4} autres
+                              </span>
+                            )}
                           </div>
                         )}
                       </div>
