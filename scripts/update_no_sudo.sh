@@ -86,24 +86,52 @@ create_backup() {
 
 stop_application() {
     log_info "Stopping application processes..."
-    
-    # Try to find and stop Node.js processes related to SelfUp
+
+    # Arrêt via PID de l'app si disponible
+    if [[ -f "$SELFUP_DIR/app.pid" ]]; then
+        APPPID=$(cat "$SELFUP_DIR/app.pid" 2>/dev/null || true)
+        if [[ -n "$APPPID" ]] && kill -0 "$APPPID" 2>/dev/null; then
+            log_info "Killing app PID=${APPPID} (from app.pid)"
+            kill -TERM "$APPPID" 2>/dev/null || true
+            sleep 3
+            kill -KILL "$APPPID" 2>/dev/null || true
+        fi
+    fi
+
+    # Arrêt de processus Node liés
     PIDS=$(pgrep -f "node.*server.js\|npm.*start\|node.*backend" 2>/dev/null || true)
-    
     if [[ -n "$PIDS" ]]; then
         log_info "Found running processes: $PIDS"
         echo "$PIDS" | xargs -r kill -TERM 2>/dev/null || true
         sleep 3
-        
-        # Force kill if still running
         REMAINING_PIDS=$(pgrep -f "node.*server.js\|npm.*start\|node.*backend" 2>/dev/null || true)
         if [[ -n "$REMAINING_PIDS" ]]; then
             echo "$REMAINING_PIDS" | xargs -r kill -KILL 2>/dev/null || true
         fi
-        
-        log_success "Application processes stopped"
+    fi
+
+    # Libération par port si nécessaire (PORT/.env/3001)
+    local target_port="${PORT:-}"
+    if [[ -z "$target_port" ]] && [[ -f "$SELFUP_DIR/.env" ]]; then
+        target_port=$(grep -E '^PORT=' "$SELFUP_DIR/.env" | tail -n1 | cut -d= -f2 | tr -d '\r')
+    fi
+    [[ -z "$target_port" ]] && target_port=3001
+
+    if is_port_in_use "$target_port"; then
+        log_info "Port ${target_port} still in use; attempting kill by port"
+        local pidp
+        pidp=$(find_pid_by_port "$target_port")
+        if [[ -n "$pidp" ]]; then
+            kill -TERM "$pidp" 2>/dev/null || true
+            sleep 3
+            kill -KILL "$pidp" 2>/dev/null || true
+        fi
+    fi
+
+    if is_port_in_use "$target_port"; then
+        log_warning "Port ${target_port} remains in use after stop attempts"
     else
-        log_warning "No running application processes found"
+        log_success "Application processes stopped"
     fi
 }
 
@@ -158,9 +186,15 @@ migrate_database() {
 # Utility: check if a TCP port is in use (localhost)
 is_port_in_use() {
     local port=$1
+    # Méthodes rapides
     timeout 1 bash -c "</dev/tcp/127.0.0.1/${port}" >/dev/null 2>&1 && return 0
     command -v curl >/dev/null 2>&1 && curl -s --max-time 1 http://127.0.0.1:${port}/ >/dev/null 2>&1 && return 0
     command -v ss >/dev/null 2>&1 && ss -ltn | grep -q ":${port} " && return 0
+    # Dernier recours: sonde Node (renvoie 0 si déjà occupé)
+    if command -v node >/dev/null 2>&1; then
+        node -e "const net=require('net');const p=${port};const s=net.createServer();s.once('error',e=>process.exit(0));s.once('listening',()=>s.close(()=>process.exit(1)));s.listen(p);" >/dev/null 2>&1
+        [ $? -eq 0 ] && return 0
+    fi
     return 1
 }
 
@@ -175,7 +209,6 @@ find_pid_by_port() {
         pid=$(lsof -iTCP:${port} -sTCP:LISTEN -t 2>/dev/null | head -n1)
     fi
     if [[ -z "$pid" ]] && command -v fuser >/dev/null 2>&1; then
-        # fuser renvoie le PID sur stdout; on ignore la sortie stderr
         pid=$(fuser ${port}/tcp 2>/dev/null | tr -d ' ')
     fi
     echo "$pid"
@@ -206,31 +239,38 @@ start_application() {
     export NODE_ENV=production
     
     DEFAULT_PORT=3001
-    PORT_TO_USE="${PORT:-$DEFAULT_PORT}"
-    
-    # Assurer que le port choisi reste constant; le libérer s'il est occupé
-    if is_port_in_use "$PORT_TO_USE"; then
-        log_warning "Port ${PORT_TO_USE} occupé; tentative de libération..."
-        PID_BY_PORT=$(find_pid_by_port "$PORT_TO_USE")
-        if [[ -n "$PID_BY_PORT" ]]; then
-            log_info "Arrêt du processus PID=${PID_BY_PORT} sur le port ${PORT_TO_USE}"
-            kill -TERM "$PID_BY_PORT" 2>/dev/null || true
-            sleep 3
-            if kill -0 "$PID_BY_PORT" 2>/dev/null; then
-                log_warning "Processus encore actif; forçage de l'arrêt"
-                kill -KILL "$PID_BY_PORT" 2>/dev/null || true
-            fi
-        else
-            log_warning "PID introuvable pour le port ${PORT_TO_USE}; tentative d'arrêt générique des processus Node"
-            stop_application
-        fi
-        sleep 2
+    # Déterminer le PORT: priorité à env, puis .env, sinon 3001
+    PORT_TO_USE="${PORT:-}"
+    if [[ -z "$PORT_TO_USE" ]] && [[ -f "$SELFUP_DIR/.env" ]]; then
+        PORT_TO_USE=$(grep -E '^PORT=' "$SELFUP_DIR/.env" | tail -n1 | cut -d= -f2 | tr -d '\r')
+    fi
+    [[ -z "$PORT_TO_USE" ]] && PORT_TO_USE="$DEFAULT_PORT"
+
+    # Assurer port constant; libérer s'il est occupé, avec quelques tentatives
+    for i in 1 2 3; do
         if is_port_in_use "$PORT_TO_USE"; then
-            log_error "Le port ${PORT_TO_USE} reste occupé après tentative de libération"
-            log_info "Abandon et restauration du backup"
-            restore_from_backup
-            exit 1
+            log_warning "Port ${PORT_TO_USE} occupé; tentative de libération (${i}/3)"
+            PID_BY_PORT=$(find_pid_by_port "$PORT_TO_USE")
+            if [[ -n "$PID_BY_PORT" ]]; then
+                log_info "Arrêt du PID=${PID_BY_PORT} sur le port ${PORT_TO_USE}"
+                kill -TERM "$PID_BY_PORT" 2>/dev/null || true
+                sleep 3
+                if kill -0 "$PID_BY_PORT" 2>/dev/null; then
+                    kill -KILL "$PID_BY_PORT" 2>/dev/null || true
+                fi
+            else
+                stop_application
+            fi
+            sleep 2
+        else
+            break
         fi
+    done
+
+    if is_port_in_use "$PORT_TO_USE"; then
+        log_error "Le port ${PORT_TO_USE} reste occupé; restauration du backup"
+        restore_from_backup
+        exit 1
     fi
 
     export PORT="$PORT_TO_USE"
