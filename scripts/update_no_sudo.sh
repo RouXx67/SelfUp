@@ -160,11 +160,14 @@ start_application() {
     
     cd "$SELFUP_DIR"
     
-    # Start the application in background
-    nohup npm start > logs/app.log 2>&1 &
+    export NODE_ENV=production
+    PORT_ENV="${PORT:-}" # Respecte un PORT existant si défini par l’environnement
+    
+    # Démarre directement le serveur backend pour éviter les subtilités npm
+    nohup node backend/server.js > logs/app.log 2>&1 &
     APP_PID=$!
     
-    # Wait a moment and check if it's still running
+    # Attente et vérification
     sleep 3
     
     if kill -0 "$APP_PID" 2>/dev/null; then
@@ -174,7 +177,13 @@ start_application() {
         log_error "Failed to start application"
         log_info "Check logs at: $SELFUP_DIR/logs/app.log"
         
-        # Try to restore from backup
+        # Affiche les dernières lignes du log pour diagnostic
+        if [[ -f "$SELFUP_DIR/logs/app.log" ]]; then
+            log_info "Last 60 lines of app.log:"
+            tail -n 60 "$SELFUP_DIR/logs/app.log" || true
+        fi
+        
+        # Tentative de restauration
         log_warning "Attempting to restore from backup..."
         restore_from_backup
         exit 1
