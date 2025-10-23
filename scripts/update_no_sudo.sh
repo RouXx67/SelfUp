@@ -84,54 +84,21 @@ create_backup() {
     log_success "Backup created at $BACKUP_PATH"
 }
 
-stop_application() {
-    log_info "Stopping application processes..."
-
-    # Arrêt via PID de l'app si disponible
-    if [[ -f "$SELFUP_DIR/app.pid" ]]; then
-        APPPID=$(cat "$SELFUP_DIR/app.pid" 2>/dev/null || true)
-        if [[ -n "$APPPID" ]] && kill -0 "$APPPID" 2>/dev/null; then
-            log_info "Killing app PID=${APPPID} (from app.pid)"
-            kill -TERM "$APPPID" 2>/dev/null || true
-            sleep 3
-            kill -KILL "$APPPID" 2>/dev/null || true
-        fi
+# Diagnostic détaillé du port
+port_diagnose() {
+    local port=$1
+    log_info "Diagnostic du port ${port}"
+    if command -v ss >/dev/null 2>&1; then
+        log_info "ss -ltnp | grep :${port}"
+        ss -ltnp | grep ":${port} " || true
     fi
-
-    # Arrêt de processus Node liés
-    PIDS=$(pgrep -f "node.*server.js\|npm.*start\|node.*backend" 2>/dev/null || true)
-    if [[ -n "$PIDS" ]]; then
-        log_info "Found running processes: $PIDS"
-        echo "$PIDS" | xargs -r kill -TERM 2>/dev/null || true
-        sleep 3
-        REMAINING_PIDS=$(pgrep -f "node.*server.js\|npm.*start\|node.*backend" 2>/dev/null || true)
-        if [[ -n "$REMAINING_PIDS" ]]; then
-            echo "$REMAINING_PIDS" | xargs -r kill -KILL 2>/dev/null || true
-        fi
+    if command -v lsof >/dev/null 2>&1; then
+        log_info "lsof -iTCP:${port} -sTCP:LISTEN"
+        lsof -iTCP:${port} -sTCP:LISTEN 2>/dev/null || true
     fi
-
-    # Libération par port si nécessaire (PORT/.env/3001)
-    local target_port="${PORT:-}"
-    if [[ -z "$target_port" ]] && [[ -f "$SELFUP_DIR/.env" ]]; then
-        target_port=$(grep -E '^PORT=' "$SELFUP_DIR/.env" | tail -n1 | cut -d= -f2 | tr -d '\r')
-    fi
-    [[ -z "$target_port" ]] && target_port=3001
-
-    if is_port_in_use "$target_port"; then
-        log_info "Port ${target_port} still in use; attempting kill by port"
-        local pidp
-        pidp=$(find_pid_by_port "$target_port")
-        if [[ -n "$pidp" ]]; then
-            kill -TERM "$pidp" 2>/dev/null || true
-            sleep 3
-            kill -KILL "$pidp" 2>/dev/null || true
-        fi
-    fi
-
-    if is_port_in_use "$target_port"; then
-        log_warning "Port ${target_port} remains in use after stop attempts"
-    else
-        log_success "Application processes stopped"
+    if command -v fuser >/dev/null 2>&1; then
+        log_info "fuser ${port}/tcp"
+        fuser ${port}/tcp 2>/dev/null || true
     fi
 }
 
@@ -239,14 +206,15 @@ start_application() {
     export NODE_ENV=production
     
     DEFAULT_PORT=3001
-    # Déterminer le PORT: priorité à env, puis .env, sinon 3001
     PORT_TO_USE="${PORT:-}"
     if [[ -z "$PORT_TO_USE" ]] && [[ -f "$SELFUP_DIR/.env" ]]; then
         PORT_TO_USE=$(grep -E '^PORT=' "$SELFUP_DIR/.env" | tail -n1 | cut -d= -f2 | tr -d '\r')
     fi
     [[ -z "$PORT_TO_USE" ]] && PORT_TO_USE="$DEFAULT_PORT"
 
-    # Assurer port constant; libérer s'il est occupé, avec quelques tentatives
+    log_info "Préparation du démarrage sur le port ${PORT_TO_USE}"
+    port_diagnose "$PORT_TO_USE"
+
     for i in 1 2 3; do
         if is_port_in_use "$PORT_TO_USE"; then
             log_warning "Port ${PORT_TO_USE} occupé; tentative de libération (${i}/3)"
@@ -258,10 +226,11 @@ start_application() {
                 if kill -0 "$PID_BY_PORT" 2>/dev/null; then
                     kill -KILL "$PID_BY_PORT" 2>/dev/null || true
                 fi
-            else
+            } else {
                 stop_application
             fi
             sleep 2
+            port_diagnose "$PORT_TO_USE"
         else
             break
         fi
