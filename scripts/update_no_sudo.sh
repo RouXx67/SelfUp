@@ -155,36 +155,102 @@ migrate_database() {
     log_success "Database check completed"
 }
 
+# Utility: check if a TCP port is in use (localhost)
+is_port_in_use() {
+    local port=$1
+    timeout 1 bash -c "</dev/tcp/127.0.0.1/${port}" >/dev/null 2>&1 && return 0
+    command -v curl >/dev/null 2>&1 && curl -s --max-time 1 http://127.0.0.1:${port}/ >/dev/null 2>&1 && return 0
+    command -v ss >/dev/null 2>&1 && ss -ltn | grep -q ":${port} " && return 0
+    return 1
+}
+
+# Trouver le PID écoutant sur un port donné
+find_pid_by_port() {
+    local port=$1
+    local pid=""
+    if command -v ss >/dev/null 2>&1; then
+        pid=$(ss -ltnp | grep ":${port} " | sed -n 's/.*pid=\([0-9]\+\).*/\1/p' | head -n1)
+    fi
+    if [[ -z "$pid" ]] && command -v lsof >/dev/null 2>&1; then
+        pid=$(lsof -iTCP:${port} -sTCP:LISTEN -t 2>/dev/null | head -n1)
+    fi
+    if [[ -z "$pid" ]] && command -v fuser >/dev/null 2>&1; then
+        # fuser renvoie le PID sur stdout; on ignore la sortie stderr
+        pid=$(fuser ${port}/tcp 2>/dev/null | tr -d ' ')
+    fi
+    echo "$pid"
+}
+
+find_free_port() {
+    local start=${1:-3001}
+    local end=${2:-3010}
+    local p=$start
+    while [ $p -le $end ]; do
+        if is_port_in_use "$p"; then
+            p=$((p+1))
+            continue
+        else
+            echo "$p"
+            return 0
+        fi
+    done
+    # fallback to start if none found
+    echo "$start"
+}
+
 start_application() {
     log_info "Starting application..."
     
     cd "$SELFUP_DIR"
     
     export NODE_ENV=production
-    PORT_ENV="${PORT:-}" # Respecte un PORT existant si défini par l’environnement
     
-    # Démarre directement le serveur backend pour éviter les subtilités npm
-    nohup node backend/server.js > logs/app.log 2>&1 &
+    DEFAULT_PORT=3001
+    PORT_TO_USE="${PORT:-$DEFAULT_PORT}"
+    
+    # Assurer que le port choisi reste constant; le libérer s'il est occupé
+    if is_port_in_use "$PORT_TO_USE"; then
+        log_warning "Port ${PORT_TO_USE} occupé; tentative de libération..."
+        PID_BY_PORT=$(find_pid_by_port "$PORT_TO_USE")
+        if [[ -n "$PID_BY_PORT" ]]; then
+            log_info "Arrêt du processus PID=${PID_BY_PORT} sur le port ${PORT_TO_USE}"
+            kill -TERM "$PID_BY_PORT" 2>/dev/null || true
+            sleep 3
+            if kill -0 "$PID_BY_PORT" 2>/dev/null; then
+                log_warning "Processus encore actif; forçage de l'arrêt"
+                kill -KILL "$PID_BY_PORT" 2>/dev/null || true
+            fi
+        else
+            log_warning "PID introuvable pour le port ${PORT_TO_USE}; tentative d'arrêt générique des processus Node"
+            stop_application
+        fi
+        sleep 2
+        if is_port_in_use "$PORT_TO_USE"; then
+            log_error "Le port ${PORT_TO_USE} reste occupé après tentative de libération"
+            log_info "Abandon et restauration du backup"
+            restore_from_backup
+            exit 1
+        fi
+    fi
+
+    export PORT="$PORT_TO_USE"
+
+    nohup env PORT="$PORT_TO_USE" NODE_ENV=production node backend/server.js > logs/app.log 2>&1 &
     APP_PID=$!
-    
-    # Attente et vérification
+
     sleep 3
-    
+
     if kill -0 "$APP_PID" 2>/dev/null; then
-        log_success "Application started successfully (PID: $APP_PID)"
+        log_success "Application démarrée (PID: $APP_PID) sur le port $PORT_TO_USE"
         echo "$APP_PID" > "$SELFUP_DIR/app.pid"
     else
-        log_error "Failed to start application"
-        log_info "Check logs at: $SELFUP_DIR/logs/app.log"
-        
-        # Affiche les dernières lignes du log pour diagnostic
+        log_error "Échec du démarrage de l'application"
+        log_info "Consultez les logs: $SELFUP_DIR/logs/app.log"
         if [[ -f "$SELFUP_DIR/logs/app.log" ]]; then
-            log_info "Last 60 lines of app.log:"
+            log_info "Dernières 60 lignes de app.log:"
             tail -n 60 "$SELFUP_DIR/logs/app.log" || true
         fi
-        
-        # Tentative de restauration
-        log_warning "Attempting to restore from backup..."
+        log_warning "Restauration depuis le backup..."
         restore_from_backup
         exit 1
     fi
