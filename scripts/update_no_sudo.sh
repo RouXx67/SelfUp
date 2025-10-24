@@ -357,3 +357,59 @@ main() {
 
 # Run main function
 main "$@"
+
+# Arrêter proprement l'application si elle tourne
+stop_application() {
+    log_info "Arrêt de l'application en cours si nécessaire..."
+    cd "$SELFUP_DIR"
+
+    # Arrêt via app.pid si présent
+    if [[ -f "$SELFUP_DIR/app.pid" ]]; then
+        PID=$(cat "$SELFUP_DIR/app.pid")
+        if kill -0 "$PID" 2>/dev/null; then
+            log_info "Arrêt du processus existant PID=${PID}"
+            kill -TERM "$PID" 2>/dev/null || true
+            for attempt in 1 2 3; do
+                if kill -0 "$PID" 2>/dev/null; then
+                    sleep 2
+                else
+                    break
+                fi
+            done
+            if kill -0 "$PID" 2>/dev/null; then
+                kill -KILL "$PID" 2>/dev/null || true
+            fi
+        fi
+    fi
+
+    # Déterminer le port cible
+    DEFAULT_PORT=3001
+    PORT_TO_USE="${PORT:-}"
+    if [[ -z "$PORT_TO_USE" ]] && [[ -f "$SELFUP_DIR/.env" ]]; then
+        PORT_TO_USE=$(grep -E '^PORT=' "$SELFUP_DIR/.env" | tail -n1 | cut -d= -f2 | tr -d '\r')
+    fi
+    [[ -z "$PORT_TO_USE" ]] && PORT_TO_USE="$DEFAULT_PORT"
+
+    # Arrêt via PID lié au port
+    if is_port_in_use "$PORT_TO_USE"; then
+        PID_BY_PORT=$(find_pid_by_port "$PORT_TO_USE")
+        if [[ -n "$PID_BY_PORT" ]]; then
+            log_info "Arrêt du PID=${PID_BY_PORT} (port ${PORT_TO_USE})"
+            kill -TERM "$PID_BY_PORT" 2>/dev/null || true
+            sleep 2
+            if kill -0 "$PID_BY_PORT" 2>/dev/null; then
+                kill -KILL "$PID_BY_PORT" 2>/dev/null || true
+            fi
+        fi
+    fi
+
+    # Nettoyage du fichier pid s'il est obsolète
+    if [[ -f "$SELFUP_DIR/app.pid" ]]; then
+        PID=$(cat "$SELFUP_DIR/app.pid")
+        if ! kill -0 "$PID" 2>/dev/null; then
+            rm -f "$SELFUP_DIR/app.pid"
+        fi
+    fi
+
+    log_success "Application arrêtée (si elle était en cours d'exécution)"
+}
