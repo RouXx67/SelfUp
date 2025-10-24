@@ -219,16 +219,16 @@ start_application() {
         if is_port_in_use "$PORT_TO_USE"; then
             log_warning "Port ${PORT_TO_USE} occupé; tentative de libération (${i}/3)"
             PID_BY_PORT=$(find_pid_by_port "$PORT_TO_USE")
-            if [[ -n "$PID_BY_PORT" ]]; then
-                log_info "Arrêt du PID=${PID_BY_PORT} sur le port ${PORT_TO_USE}"
-                kill -TERM "$PID_BY_PORT" 2>/dev/null || true
-                sleep 3
-                if kill -0 "$PID_BY_PORT" 2>/dev/null; then
-                    kill -KILL "$PID_BY_PORT" 2>/dev/null || true
-                fi
-            } else {
-                stop_application
-            fi
+             if [[ -n "$PID_BY_PORT" ]]; then
+                 log_info "Arrêt du PID=${PID_BY_PORT} sur le port ${PORT_TO_USE}"
+                 kill -TERM "$PID_BY_PORT" 2>/dev/null || true
+                 sleep 3
+                 if kill -0 "$PID_BY_PORT" 2>/dev/null; then
+                     kill -KILL "$PID_BY_PORT" 2>/dev/null || true
+                 fi
+             else
+                 stop_application
+             fi
             sleep 2
             port_diagnose "$PORT_TO_USE"
         else
