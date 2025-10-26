@@ -158,6 +158,26 @@ fi
 log_info "Installation de la nouvelle version..."
 pct exec "$LXC_ID" -- rm -rf /opt/selfup/app
 pct exec "$LXC_ID" -- cp -r /tmp/selfup_update /opt/selfup/app
+
+# S’assurer que le dossier scripts est présent après mise à jour
+if ! pct exec "$LXC_ID" -- test -d /opt/selfup/app/scripts; then
+    log_warning "Répertoire /opt/selfup/app/scripts manquant dans la nouvelle version"
+    if pct exec "$LXC_ID" -- test -d "$BACKUP_DIR/app_$TIMESTAMP/scripts"; then
+        log_info "Restauration de /opt/selfup/app/scripts depuis le backup"
+        pct exec "$LXC_ID" -- cp -r "$BACKUP_DIR/app_$TIMESTAMP/scripts" /opt/selfup/app/
+    else
+        log_info "Téléchargement des scripts depuis le dépôt"
+        pct exec "$LXC_ID" -- mkdir -p /opt/selfup/app/scripts
+        pct exec "$LXC_ID" -- bash -c "curl -fsSL https://raw.githubusercontent.com/RouXx67/SelfUp/main/scripts/update.sh -o /opt/selfup/app/scripts/update.sh"
+        pct exec "$LXC_ID" -- bash -c "curl -fsSL https://raw.githubusercontent.com/RouXx67/SelfUp/main/scripts/update_lxc.sh -o /opt/selfup/app/scripts/update_lxc.sh"
+        pct exec "$LXC_ID" -- bash -c "curl -fsSL https://raw.githubusercontent.com/RouXx67/SelfUp/main/scripts/update_monitor.sh -o /opt/selfup/app/scripts/update_monitor.sh"
+        pct exec "$LXC_ID" -- bash -c "curl -fsSL https://raw.githubusercontent.com/RouXx67/SelfUp/main/scripts/install.sh -o /opt/selfup/app/scripts/install.sh"
+        pct exec "$LXC_ID" -- bash -c "curl -fsSL https://raw.githubusercontent.com/RouXx67/SelfUp/main/scripts/update_no_sudo.sh -o /opt/selfup/app/scripts/update_no_sudo.sh"
+        pct exec "$LXC_ID" -- chmod +x /opt/selfup/app/scripts/*.sh
+    fi
+    pct exec "$LXC_ID" -- chown -R selfup:selfup /opt/selfup/app/scripts
+fi
+
 pct exec "$LXC_ID" -- chown -R selfup:selfup /opt/selfup/app
 
 # Restaurer la configuration
