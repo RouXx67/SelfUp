@@ -153,6 +153,11 @@ GOTIFY_TOKEN=votre_token_gotify
 # Vérification des mises à jour
 CHECK_INTERVAL_HOURS=6
 DEFAULT_TIMEOUT=10000
+
+# Détection LXC (auto) et override
+# Par défaut, SelfUp auto-détecte LXC.
+# Définissez USE_LXC=true pour forcer le mode LXC si besoin.
+USE_LXC=false
 ```
 
 ## 📱 Utilisation
@@ -282,8 +287,25 @@ GET    /api/updates           # Historique des mises à jour
 POST   /api/updates/check     # Vérification manuelle
 POST   /api/updates/check-all # Vérifier toutes les apps
 
-GET    /api/health            # État de l'API
 ```
+GET    /api/health            # État de l'API
+
+POST   /api/system/update     # Lancer une mise à jour de SelfUp (point d'entrée unique)
+```
+
+#### POST /api/system/update
+- Déclenche la mise à jour via un script choisi automatiquement selon l’environnement (LXC/sudo/no_sudo)
+- Réponse JSON (exemple):
+```json
+{
+  "success": true,
+  "message": "Mise à jour lancée avec succès (avec sudo)",
+  "sessionId": "1712345678901",
+  "scriptUsed": "update.sh"
+}
+```
+- `scriptUsed` peut être `update_lxc.sh`, `update.sh` ou `update_no_sudo.sh`
+- Utilisez `sessionId` pour consulter les logs si vous exposez un endpoint de logs (optionnel)
 
 ### Exemple d'utilisation
 
