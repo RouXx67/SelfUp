@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { FiRefreshCw, FiDownload, FiCheckCircle, FiXCircle } from 'react-icons/fi'
+import { FiRefreshCw, FiDownload, FiCheckCircle, FiXCircle, FiSave, FiSend } from 'react-icons/fi'
 import { healthApi } from '../services/api'
 import toast from 'react-hot-toast'
 import UpdateProgressBar from '../components/UpdateProgressBar'
@@ -11,10 +11,15 @@ export default function Settings() {
   const [updateInfo, setUpdateInfo] = useState(null)
   const [updating, setUpdating] = useState(false)
   const [updateId, setUpdateId] = useState(null)
+  const [gotifyLoading, setGotifyLoading] = useState(false)
+  const [gotifySaving, setGotifySaving] = useState(false)
+  const [gotifyTesting, setGotifyTesting] = useState(false)
+  const [gotifyConfig, setGotifyConfig] = useState({ url: '', token: '' })
 
   useEffect(() => {
     checkHealth()
     checkForUpdates()
+    fetchGotifyConfig()
   }, [])
 
   const checkHealth = async () => {
@@ -43,6 +48,68 @@ export default function Settings() {
       toast.error('Erreur de connexion au serveur')
     } finally {
       setCheckingUpdates(false)
+    }
+  }
+
+  const fetchGotifyConfig = async () => {
+    setGotifyLoading(true)
+    try {
+      const response = await fetch('/api/system/gotify/config')
+      const data = await response.json()
+      if (data.success) {
+        const cfg = data.config || {}
+        setGotifyConfig({ url: cfg.url || '', token: '' })
+      } else {
+        toast.error(data.message || 'Erreur lors du chargement de la configuration Gotify')
+      }
+    } catch (error) {
+      toast.error('Erreur de connexion au serveur')
+    } finally {
+      setGotifyLoading(false)
+    }
+  }
+
+  const saveGotifyConfig = async () => {
+    if (!gotifyConfig.url || !gotifyConfig.token) {
+      toast.error('Veuillez renseigner l\'URL et le token Gotify')
+      return
+    }
+    setGotifySaving(true)
+    try {
+      const response = await fetch('/api/system/gotify/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: gotifyConfig.url, token: gotifyConfig.token })
+      })
+      const data = await response.json()
+      if (response.ok && data.success) {
+        toast.success('Configuration Gotify sauvegardée')
+        // Nettoyer le champ token pour éviter de l\'afficher en clair
+        setGotifyConfig(prev => ({ ...prev, token: '' }))
+      } else {
+        toast.error(data.message || 'Échec de la sauvegarde de la configuration')
+      }
+    } catch (error) {
+      toast.error(error.message || 'Erreur de connexion au serveur')
+    } finally {
+      setGotifySaving(false)
+    }
+  }
+
+  const testGotify = async () => {
+    setGotifyTesting(true)
+    try {
+      const response = await fetch('/api/system/gotify/test', { method: 'POST' })
+      const data = await response.json()
+      if (response.ok && data.success) {
+        toast.success('Notification de test envoyée avec succès')
+      } else {
+        toast.error(data.message || 'Échec de l\'envoi de la notification de test')
+      }
+    } catch (error) {
+      toast.error(error.message || 'Erreur de connexion au serveur')
+    } finally {
+      setGotifyTesting(false)
     }
   }
 
@@ -86,10 +153,7 @@ export default function Settings() {
     setUpdating(false)
     setUpdateId(null)
     toast.success('Mise à jour terminée avec succès !', { duration: 5000 })
-    // Recharger les informations de mise à jour
-    setTimeout(() => {
-      checkForUpdates()
-    }, 2000)
+    setTimeout(() => { checkForUpdates() }, 2000)
   }
 
   const handleUpdateError = (error) => {
@@ -199,6 +263,58 @@ export default function Settings() {
         <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
           <div className="text-sm text-gray-600 dark:text-gray-400">
             Le processus est simple et automatique. Vos données restent préservées.
+          </div>
+        </div>
+      </div>
+
+      {/* Section Gotify */}
+      <div className="card p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Notifications (Gotify)</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Configurez l'URL de votre serveur Gotify et le token d'application</p>
+          </div>
+          <button onClick={fetchGotifyConfig} disabled={gotifyLoading} className="btn btn-sm btn-secondary">
+            <FiRefreshCw className={`w-4 h-4 mr-2 ${gotifyLoading ? 'animate-spin' : ''}`} />
+            Actualiser
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="gotify_url" className="label">URL du serveur Gotify</label>
+            <input
+              id="gotify_url"
+              type="text"
+              className="input"
+              placeholder="http://votre-serveur:8080"
+              value={gotifyConfig.url}
+              onChange={(e) => setGotifyConfig(cfg => ({ ...cfg, url: e.target.value }))}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="gotify_token" className="label">Token d'application</label>
+            <input
+              id="gotify_token"
+              type="password"
+              className="input"
+              placeholder="Votre token Gotify"
+              value={gotifyConfig.token}
+              onChange={(e) => setGotifyConfig(cfg => ({ ...cfg, token: e.target.value }))}
+            />
+            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Le token n'est pas affiché s'il est déjà configuré. Renseignez-le pour le mettre à jour.</p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button onClick={saveGotifyConfig} disabled={gotifySaving} className="btn btn-primary">
+              <FiSave className={`w-4 h-4 mr-2 ${gotifySaving ? 'animate-pulse' : ''}`} />
+              {gotifySaving ? 'Sauvegarde...' : 'Sauvegarder'}
+            </button>
+            <button onClick={testGotify} disabled={gotifyTesting || !gotifyConfig.url} className="btn btn-secondary">
+              <FiSend className={`w-4 h-4 mr-2 ${gotifyTesting ? 'animate-pulse' : ''}`} />
+              {gotifyTesting ? 'Test en cours...' : 'Tester la notification'}
+            </button>
           </div>
         </div>
       </div>
