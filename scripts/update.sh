@@ -96,25 +96,40 @@ stop_service() {
 update_application() {
     log_info "Updating application files..."
     
-    # If this script is run from the SelfUp directory, copy files
-    if [[ -f "$(dirname "$0")/../package.json" ]]; then
-        log_info "Copying updated SelfUp files..."
-        
-        # Remove old app directory (except data and config)
+    # Determine source directory safely
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+    SOURCE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+    # Verify source files exist before removing current installation
+    if [[ -f "$SOURCE_DIR/package.json" ]]; then
+        log_info "Preparing updated SelfUp files from: $SOURCE_DIR"
+
+        # Stage source into a temporary directory to avoid self-deletion while running from within the app
+        TMP_DIR="$(mktemp -d -p /tmp selfup-update-XXXXXX)"
+        log_info "Staging files into temporary directory: $TMP_DIR"
+        cp -a "$SOURCE_DIR/." "$TMP_DIR/"
+
+        # Optionally clean heavy folders from staging
+        rm -rf "$TMP_DIR/node_modules" "$TMP_DIR/frontend/node_modules" "$TMP_DIR/backend/node_modules" 2>/dev/null || true
+
+        # Remove old app directory
         rm -rf "$SELFUP_DIR/app"
-        
-        # Copy new files
-        cp -r "$(dirname "$0")/.." "$SELFUP_DIR/app"
-        
-        # Restore environment file if it exists
+
+        # Copy staged files to installation directory
+        mkdir -p "$SELFUP_DIR/app"
+        cp -a "$TMP_DIR/." "$SELFUP_DIR/app/"
+
+        # Cleanup temporary directory
+        rm -rf "$TMP_DIR"
+
+        # Keep existing environment configuration if present
         if [[ -f "$SELFUP_DIR/.env" ]]; then
-            # Environment file is already in place
             log_info "Keeping existing environment configuration"
         fi
-        
+
         # Set ownership
         chown -R "$SELFUP_USER:$SELFUP_USER" "$SELFUP_DIR/app"
-        
+
         log_success "Application files updated"
     else
         log_error "SelfUp source files not found. Please run this script from the SelfUp directory."
