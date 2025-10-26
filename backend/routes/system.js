@@ -158,16 +158,28 @@ router.post('/update', async (req, res) => {
     // Launch update in background
     const { spawn } = require('child_process')
     
+    // Build args and pass LXC container ID if applicable
+    const args = [updateScript]
+    if (scriptName === 'update_lxc.sh') {
+      const containerIdArg = (req.body && (req.body.containerId || req.body.lxcId)) || process.env.LXC_CONTAINER_ID || process.env.SELFUP_LXC_ID || ''
+      if (containerIdArg) {
+        args.push(String(containerIdArg))
+        logStream.write(`📦 LXC container ID: ${containerIdArg}\n`)
+      } else {
+        logStream.write(`⚠️ Aucun LXC container ID fourni, tentative d'auto-détection côté script.\n`)
+      }
+    }
+    
     // Choose command based on sudo availability
     let updateProcess
     if (hasSudo) {
-      updateProcess = spawn('sudo', ['-n', 'bash', updateScript], {
+      updateProcess = spawn('sudo', ['-n', 'bash', ...args], {
         cwd: process.cwd(),
         detached: true,
         stdio: ['ignore', 'pipe', 'pipe']
       })
     } else {
-      updateProcess = spawn('bash', [updateScript], {
+      updateProcess = spawn('bash', args, {
         cwd: process.cwd(),
         detached: true,
         stdio: ['ignore', 'pipe', 'pipe']
@@ -395,10 +407,12 @@ router.get('/update/logs/:id', (req, res) => {
     }
 
     const content = fs.existsSync(session.logPath) ? fs.readFileSync(session.logPath, 'utf8') : ''
-    
+    const stripAnsi = (s) => s.replace(/[\u001B\u009B][[\()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-PR-TZcf-ntqry=><~]/g, '')
+    const sanitizedContent = stripAnsi(content)
+
     // Parse logs into lines for better frontend handling
-    const logLines = content.split('\n').filter(line => line.trim() !== '')
-    
+    const logLines = sanitizedContent.split('\n').filter(line => line.trim() !== '')
+
     // Determine if there are errors in the logs
     const hasErrors = session.exitCode !== null && session.exitCode !== 0
     const errorLines = hasErrors ? logLines.filter(line => 
@@ -408,11 +422,11 @@ router.get('/update/logs/:id', (req, res) => {
       line.toLowerCase().includes('échec')
     ) : []
 
-    res.json({
+    return res.json({
       success: true,
       sessionId,
       logs: logLines,
-      rawLogs: content,
+      rawLogs: sanitizedContent,
       completed: Boolean(session.finishedAt),
       exitCode: session.exitCode,
       startedAt: session.startedAt,
