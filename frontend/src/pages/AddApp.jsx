@@ -172,7 +172,7 @@ export default function AddApp() {
   }, [formData.provider, formData.check_url])
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
@@ -245,7 +245,7 @@ export default function AddApp() {
                 Aucun préréglage trouvé.
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5">
                 {filteredPresets.map((preset) => ( 
                   <button
                     key={preset.id}
