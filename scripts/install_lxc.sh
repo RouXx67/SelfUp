@@ -530,11 +530,9 @@ install_selfup_in_container() {
     
     # Copier les fichiers avec une méthode plus robuste
     log_info "Copie des fichiers SelfUp..."
-    pct exec "$LXC_ID" -- bash -c "cd /tmp/selfup && cp -r . /opt/selfup/app/"
-    
-    # Vérifier que la copie a réussi
-    if ! pct exec "$LXC_ID" -- test -f /opt/selfup/app/package.json; then
+    if ! pct exec "$LXC_ID" -- bash -c "cd /tmp/selfup && tar -cf - . | tar -C /opt/selfup/app -xf -"; then
         log_error "Échec de la copie des fichiers SelfUp"
+        pct exec "$LXC_ID" -- bash -c "echo 'Diagnostic de copie:'; ls -la /tmp/selfup || true; ls -la /opt/selfup/app || true; df -h /opt/selfup || df -h || true"
         exit 1
     fi
     
