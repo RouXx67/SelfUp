@@ -150,7 +150,7 @@ export default function Settings() {
           </button>
         </div>
 
-        {updateInfo?.hasUpdates ? (
+        {updateInfo?.hasUpdates && (
           <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4 mb-4">
             <div className="flex items-start">
               <FiDownload className="h-5 w-5 text-orange-600 dark:text-orange-400 mt-0.5" />
@@ -182,7 +182,7 @@ export default function Settings() {
           </div>
         )}
 
-        {!updateInfo?.hasUpdates && (
+        {(!updateInfo || !updateInfo.hasUpdates) && (
           <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 mb-2">
             <div className="flex">
               <FiCheckCircle className="h-5 w-5 text-green-400" />
