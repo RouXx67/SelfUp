@@ -82,21 +82,44 @@ router.get('/check-updates', async (req, res) => {
 // Route pour déclencher une mise à jour
 router.post('/update', async (req, res) => {
   try {
-    // Function to detect if we can use sudo
+    // Detect LXC or choose script via config/env
+    const detectLxc = () => {
+      const envFlag = process.env.USE_LXC
+      if (envFlag && /^(1|true|yes)$/i.test(envFlag)) return true
+      try {
+        const cgroupPath = '/proc/1/cgroup'
+        if (fs.existsSync(cgroupPath)) {
+          const content = fs.readFileSync(cgroupPath, 'utf8')
+          if (/lxc|container/i.test(content)) return true
+        }
+        const systemdContainerPath = '/run/systemd/container'
+        if (fs.existsSync(systemdContainerPath)) {
+          const type = fs.readFileSync(systemdContainerPath, 'utf8').trim()
+          if (/lxc/i.test(type)) return true
+        }
+      } catch (_) {}
+      return false
+    }
+
     const canUseSudo = () => {
       try {
         const { execSync } = require('child_process')
-        // Test if sudo is available and can be used without password
         execSync('sudo -n true', { stdio: 'ignore', timeout: 5000 })
         return true
-      } catch (error) {
+      } catch {
         return false
       }
     }
 
-    // Choose the appropriate update script
-    const hasSudo = canUseSudo()
-    const scriptName = hasSudo ? 'update.sh' : 'update_no_sudo.sh'
+    // Choose the appropriate update script with a single entry point
+    let scriptName
+    const isLxc = detectLxc()
+    if (isLxc) {
+      scriptName = 'update_lxc.sh'
+    } else {
+      scriptName = canUseSudo() ? 'update.sh' : 'update_no_sudo.sh'
+    }
+    const hasSudo = scriptName === 'update.sh'
     const updateScript = path.join(process.cwd(), 'scripts', scriptName)
     
     if (!fs.existsSync(updateScript)) {
