@@ -15,6 +15,7 @@ export default function Settings() {
   const [gotifySaving, setGotifySaving] = useState(false)
   const [gotifyTesting, setGotifyTesting] = useState(false)
   const [gotifyConfig, setGotifyConfig] = useState({ url: '', token: '' })
+  const [lxcContainerId, setLxcContainerId] = useState('')
 
   useEffect(() => {
     checkHealth()
@@ -120,7 +121,8 @@ export default function Settings() {
     try {
       const response = await fetch('/api/system/update', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(lxcContainerId?.trim() ? { containerId: lxcContainerId.trim() } : {})
       })
 
       const ok = response.ok
@@ -224,7 +226,19 @@ export default function Settings() {
                   <p>Version actuelle: <code className="bg-orange-100 dark:bg-orange-800 px-1 rounded">{updateInfo.currentCommit}</code></p>
                   <p>Nouvelle version: <code className="bg-orange-100 dark:bg-orange-800 px-1 rounded">{updateInfo.remoteCommit}</code></p>
                 </div>
-                <div className="mt-4">
+                <div className="mt-4 space-y-3">
+                  <div>
+                    <label htmlFor="lxc_container_id" className="label">ID du conteneur LXC (optionnel)</label>
+                    <input
+                      id="lxc_container_id"
+                      type="text"
+                      className="input"
+                      placeholder="Ex: 120"
+                      value={lxcContainerId}
+                      onChange={(e) => setLxcContainerId(e.target.value)}
+                    />
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Si votre installation SelfUp se trouve dans un conteneur Proxmox LXC, renseignez l’ID du conteneur.</p>
+                  </div>
                   <button onClick={handleUpdate} disabled={updating} className="btn bg-orange-600 hover:bg-orange-700 text-white border-orange-600 hover:border-orange-700">
                     <FiDownload className={`w-4 h-4 mr-2 ${updating ? 'animate-pulse' : ''}`} />
                     {updating ? 'Mise à jour en cours...' : 'Mettre à jour SelfUp'}

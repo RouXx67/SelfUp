@@ -59,14 +59,34 @@ if [[ "$1" == "-h" || "$1" == "--help" ]]; then
     exit 0
 fi
 
-# Obtenir l'ID du conteneur
+# Obtenir l'ID du conteneur (non interactif)
 if [[ -n "$1" ]]; then
     LXC_ID="$1"
+elif [[ -n "$SELFUP_LXC_CONTAINER_ID" ]]; then
+    LXC_ID="$SELFUP_LXC_CONTAINER_ID"
 else
-    echo -e "${BOLD}Conteneurs LXC disponibles :${NC}"
-    pct list
-    echo
-    read -p "$(echo -e "${BOLD}ID du conteneur à mettre à jour${NC}: ")" LXC_ID
+    # Tentative de détection automatique : trouver les conteneurs LXC qui ont /opt/selfup dans le rootfs
+    DETECTED_IDS=()
+    for d in /var/lib/lxc/*; do
+      [[ -d "$d" ]] || continue
+      id="$(basename "$d")"
+      if [[ -d "$d/rootfs/opt/selfup" ]]; then
+        DETECTED_IDS+=("$id")
+      fi
+    done
+
+    if [[ ${#DETECTED_IDS[@]} -eq 1 ]]; then
+        LXC_ID="${DETECTED_IDS[0]}"
+        log_info "Détection automatique du conteneur SelfUp: $LXC_ID"
+    else
+        log_error "ID du conteneur non fourni"
+        echo "Usage: $0 [CONTAINER_ID]"
+        echo "Exemples:"
+        echo "  $0 120"
+        echo "Conteneurs disponibles:" 
+        pct list
+        exit 1
+    fi
 fi
 
 # Vérifier que le conteneur existe
