@@ -150,6 +150,7 @@ router.post('/update', async (req, res) => {
     res.json({ 
       success: true, 
       message: `Mise à jour lancée avec succès (${hasSudo ? 'avec sudo' : 'sans sudo'})`, 
+      updateId: sessionId,
       sessionId,
       scriptUsed: scriptName
     })
@@ -394,14 +395,31 @@ router.get('/update/logs/:id', (req, res) => {
     }
 
     const content = fs.existsSync(session.logPath) ? fs.readFileSync(session.logPath, 'utf8') : ''
+    
+    // Parse logs into lines for better frontend handling
+    const logLines = content.split('\n').filter(line => line.trim() !== '')
+    
+    // Determine if there are errors in the logs
+    const hasErrors = session.exitCode !== null && session.exitCode !== 0
+    const errorLines = hasErrors ? logLines.filter(line => 
+      line.toLowerCase().includes('error') || 
+      line.toLowerCase().includes('erreur') ||
+      line.toLowerCase().includes('failed') ||
+      line.toLowerCase().includes('échec')
+    ) : []
+
     res.json({
       success: true,
       sessionId,
-      logs: content,
-      finished: Boolean(session.finishedAt),
+      logs: logLines,
+      rawLogs: content,
+      completed: Boolean(session.finishedAt),
       exitCode: session.exitCode,
       startedAt: session.startedAt,
       finishedAt: session.finishedAt,
+      hasErrors,
+      errorLines,
+      scriptUsed: session.scriptUsed
     })
   } catch (error) {
     res.status(500).json({ success: false, message: 'Erreur lors de la récupération des logs: ' + error.message })

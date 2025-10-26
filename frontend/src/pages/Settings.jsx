@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { FiRefreshCw, FiDownload, FiCheckCircle, FiXCircle } from 'react-icons/fi'
 import { healthApi } from '../services/api'
 import toast from 'react-hot-toast'
+import UpdateProgressBar from '../components/UpdateProgressBar'
 
 export default function Settings() {
   const [checkingHealth, setCheckingHealth] = useState(false)
@@ -9,6 +10,7 @@ export default function Settings() {
   const [checkingUpdates, setCheckingUpdates] = useState(false)
   const [updateInfo, setUpdateInfo] = useState(null)
   const [updating, setUpdating] = useState(false)
+  const [updateId, setUpdateId] = useState(null)
 
   useEffect(() => {
     checkHealth()
@@ -46,6 +48,8 @@ export default function Settings() {
 
   const handleUpdate = async () => {
     setUpdating(true)
+    setUpdateId(null)
+    
     try {
       const response = await fetch('/api/system/update', {
         method: 'POST',
@@ -55,10 +59,12 @@ export default function Settings() {
       const ok = response.ok
       const result = ok ? await response.json() : null
 
-      if (ok) {
+      if (ok && result?.updateId) {
         const mode = result?.scriptUsed?.includes('lxc')
           ? 'LXC'
           : (result?.scriptUsed?.includes('no_sudo') ? 'sans sudo' : 'standard')
+        
+        setUpdateId(result.updateId)
         toast.success(`Mise à jour lancée (${mode})`, { duration: 4000 })
       } else {
         let errorMessage = 'Erreur lors du lancement de la mise à jour'
@@ -67,13 +73,29 @@ export default function Settings() {
           if (errorData.message) errorMessage = errorData.message
         } catch {}
         toast.error(errorMessage, { duration: 7000 })
+        setUpdating(false)
       }
     } catch (error) {
       toast.error(error.message || 'Erreur de connexion au serveur', { duration: 7000 })
       console.error('Erreur détaillée lors de la mise à jour:', error)
-    } finally {
       setUpdating(false)
     }
+  }
+
+  const handleUpdateComplete = () => {
+    setUpdating(false)
+    setUpdateId(null)
+    toast.success('Mise à jour terminée avec succès !', { duration: 5000 })
+    // Recharger les informations de mise à jour
+    setTimeout(() => {
+      checkForUpdates()
+    }, 2000)
+  }
+
+  const handleUpdateError = (error) => {
+    setUpdating(false)
+    setUpdateId(null)
+    toast.error(`Échec de la mise à jour: ${error}`, { duration: 10000 })
   }
 
   return (
@@ -147,7 +169,20 @@ export default function Settings() {
               </div>
             </div>
           </div>
-        ) : (
+        )}
+
+        {/* Barre de progression de mise à jour */}
+        {updateId && (
+          <div className="mb-4">
+            <UpdateProgressBar 
+              updateId={updateId}
+              onComplete={handleUpdateComplete}
+              onError={handleUpdateError}
+            />
+          </div>
+        )}
+
+        {!updateInfo?.hasUpdates && (
           <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 mb-2">
             <div className="flex">
               <FiCheckCircle className="h-5 w-5 text-green-400" />
