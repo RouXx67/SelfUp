@@ -245,28 +245,28 @@ export default function AddApp() {
                 Aucun préréglage trouvé.
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-2 gap-6">
                 {filteredPresets.map((preset) => ( 
                   <button
                     key={preset.id}
                     onClick={() => handlePresetSelect(preset)}
-                    className="p-5 text-left border border-gray-200 dark:border-gray-700 rounded-xl hover:border-primary-300 hover:bg-primary-50 dark:hover:bg-primary-900 transition-all duration-200 hover:shadow-md group"
+                    className="p-5 min-h-[160px] w-full text-left border border-gray-200 dark:border-gray-700 rounded-xl hover:border-primary-300 hover:bg-primary-50 dark:hover:bg-primary-900 transition-all duration-200 hover:shadow-md group"
                   >
                     <div className="flex items-start space-x-4">
                       <div className="flex-shrink-0">
                         <img 
                           src={preset.icon_url} 
                           alt={preset.name}
-                          className="w-12 h-12 rounded-lg object-cover shadow-sm"
+                          className="w-14 h-14 rounded-lg object-cover shadow-sm"
                           onError={(e) => {
                             e.target.style.display = 'none'
                             e.target.nextSibling.style.display = 'flex'
                           }}
                         />
                         <div 
-                          className={`w-12 h-12 rounded-lg bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-800 dark:to-primary-900 flex items-center justify-center shadow-sm ${preset.icon_url ? 'hidden' : 'flex'}`}
+                          className={`w-14 h-14 rounded-lg bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-800 dark:to-primary-900 flex items-center justify-center shadow-sm ${preset.icon_url ? 'hidden' : 'flex'}`}
                         >
-                          <FiPackage className="w-6 h-6 text-primary-600 dark:text-primary-400" />
+                          <FiPackage className="w-7 h-7 text-primary-600 dark:text-primary-400" />
                         </div>
                       </div>
                       
